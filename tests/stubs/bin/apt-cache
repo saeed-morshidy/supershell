@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# test stub: apt-cache policy <pkg>
+[[ "$1" == policy ]] || exit 0
+v="$(awk -v p="$2" '$1==p{print $2}' "$T_APT/available")"
+echo "$2:"; echo "  Installed: (none)"; echo "  Candidate: ${v:-(none)}"

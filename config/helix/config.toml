@@ -1,0 +1,21 @@
+# supershell Helix profile — written only if you had no ~/.config/helix/config.toml
+theme = "base16_terminal"   # uses your terminal's palette (light & dark)
+
+[editor]
+line-number = "absolute"
+cursorline = true
+mouse = true
+bufferline = "multiple"
+color-modes = true
+true-color = false
+
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+select = "underline"
+
+[editor.lsp]
+display-inlay-hints = false
+
+[editor.indent-guides]
+render = true

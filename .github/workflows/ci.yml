@@ -1,0 +1,58 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+      - name: shellcheck
+        run: |
+          shellcheck -x supershell lib/*.sh modules/*/*.sh scripts/*.sh tests/run.sh tests/e2e/run.sh
+          shellcheck -s bash shell/init.bash modules/*/*.bash
+      - name: syntax
+        run: for f in supershell lib/*.sh shell/*.bash modules/*/*; do bash -n "$f"; done
+
+  tests:
+    name: tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, image: "ubuntu:24.04" }
+          - { os: ubuntu-26.04, image: "ubuntu:26.04" }
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.image }}
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq git tmux ripgrep sudo xz-utils procps ca-certificates
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - name: run suite as a normal user
+        run: |
+          useradd -m tester && chown -R tester "$GITHUB_WORKSPACE"
+          su tester -c "cd '$GITHUB_WORKSPACE' && tests/run.sh"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        if: always()
+        with: { name: "results-${{ matrix.os }}", path: tests/results/ }
+
+  e2e:
+    name: e2e (ubuntu-26.04)
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    steps:
+      - run: apt-get update -qq && apt-get install -y -qq git sudo curl ca-certificates xz-utils procps locales
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - name: real install, checks, uninstall
+        run: |
+          useradd -m tester && echo 'tester ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/tester
+          chown -R tester "$GITHUB_WORKSPACE"
+          su tester -c "cd '$GITHUB_WORKSPACE' && LANG=C.UTF-8 tests/e2e/run.sh"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        if: always()
+        with: { name: e2e-results, path: tests/results/ }

@@ -1,0 +1,4 @@
+# Sourced files are resolved relative to the script.
+source-path=SCRIPTDIR
+# Module files are sourced by the CLI and use variables defined there.
+disable=SC2034,SC2154

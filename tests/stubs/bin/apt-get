@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# test stub for apt-get: installs fake binaries into $T_FAKE_BIN
+echo "apt-get $*" >>"$T_APT/log"
+[[ -n "${T_APT_FAIL:-}" ]] && { echo "E: simulated apt failure" >&2; exit 100; }
+case "$1" in
+  update) exit 0 ;;
+  install)
+    shift
+    for a in "$@"; do
+      [[ "$a" == -* ]] && continue
+      line="$(awk -v p="$a" '$1==p' "$T_APT/available")"
+      [[ -n "$line" ]] || { echo "E: Unable to locate package $a" >&2; exit 100; }
+      read -r pkg ver bin <<<"$line"
+      grep -q "^$pkg " "$T_APT/installed" || echo "$pkg $ver" >>"$T_APT/installed"
+      [[ "$bin" != - ]] && { cp "$(dirname "$0")/../fake-tool" "$T_FAKE_BIN/$bin"; chmod +x "$T_FAKE_BIN/$bin"; }
+    done ;;
+  remove)
+    shift
+    for a in "$@"; do
+      [[ "$a" == -* ]] && continue
+      bin="$(awk -v p="$a" '$1==p{print $3}' "$T_APT/available")"
+      sed -i "/^$a /d" "$T_APT/installed"
+      [[ -n "$bin" && "$bin" != - ]] && rm -f "$T_FAKE_BIN/$bin"
+    done ;;
+esac
+exit 0

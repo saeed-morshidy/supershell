@@ -1,0 +1,7 @@
+# Text labels for modules that starship's `plain-text-symbols` preset does not cover.
+# Only used where the preset has no value (the preset always wins).
+[kubernetes]
+symbol = "k8s "
+
+[helm]
+symbol = "helm "

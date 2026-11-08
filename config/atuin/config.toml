@@ -1,0 +1,13 @@
+# supershell Atuin settings — local only. Nothing leaves this computer.
+# (Written only if you had no ~/.config/atuin/config.toml.)
+auto_sync = false
+update_check = false
+sync_frequency = "0"
+search_mode = "fuzzy"
+filter_mode = "global"
+style = "compact"
+inline_height = 20
+show_preview = true
+enter_accept = false          # Enter puts the command on the line; you press Enter again
+secrets_filter = true         # never store lines that look like passwords/tokens
+history_filter = ["^\\s"]    # commands typed with a leading space are not saved

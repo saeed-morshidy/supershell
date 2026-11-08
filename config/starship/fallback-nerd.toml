@@ -1,0 +1,10 @@
+# Icons for modules that starship's `nerd-font-symbols` preset does not cover.
+# Only used where the preset has no value (the preset always wins).
+[kubernetes]
+symbol = "󱃾 "
+
+[helm]
+symbol = "⎈ "
+
+[terraform]
+symbol = "󱁢 "

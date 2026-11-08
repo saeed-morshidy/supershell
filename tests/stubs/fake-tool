@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# One fake program that impersonates every tool supershell manages (by $0).
+name="${0##*/}"
+[[ -n "${T_TMP:-}" ]] && echo "$name $*" >>"$T_TMP/calls"
+case "$name:$*" in
+  starship:init\ bash*)  echo 'PS1="[ss-prompt] "; export SS_STUB_STARSHIP=1' ;;
+  starship:--version)    echo "starship 1.27.0" ;;
+  starship:preset\ *)   # starship preset NAME [-o FILE] — real 1.22.1 output from fixtures
+    set -- $*; f="$T_REPO/tests/fixtures/starship-presets/$2.toml"
+    [[ -f "$f" ]] || { echo "unknown preset $2" >&2; exit 1; }
+    if [[ "${3:-}" == -o ]]; then   # like starship >= 1.27: -o never overwrites
+      [[ -e "$4" ]] && { echo "Error saving file, use --force to overwrite" >&2; exit 1; }
+      cp "$f" "$4"
+    else cat "$f"; fi ;;
+  zoxide:init\ bash*)    echo 'z() { echo "z $*"; }; zi() { :; }; export SS_STUB_ZOXIDE=1' ;;
+  zoxide:--version)      echo "zoxide 0.9.8" ;;
+  fzf:--bash)            echo 'export SS_STUB_FZF=1' ;;
+  fzf:--version)         echo "0.62.0 (stub)" ;;
+  eza:--version)         echo "eza - v0.21.0" ;;
+  eza:*)                 echo "eza $*" ;;
+  batcat:--version|bat:--version) echo "bat 0.25.0" ;;
+  fdfind:--version|fd:--version)  echo "fd 10.2.0" ;;
+  rg:--version)          echo "ripgrep 14.1.1" ;;
+  delta:--version)       echo "delta 0.18.2" ;;
+  delta:*)               cat ;;
+  nvim:--version)        echo "NVIM v0.12.6" ;;
+  nvim:--headless\ +qa)
+    # T_NVIM_SLOW=1: GitHub too slow — a clone is cut off half-way, like `timeout` does.
+    if [[ -n "${T_NVIM_SLOW:-}" ]]; then
+      p="${XDG_DATA_HOME:-$HOME/.local/share}/${NVIM_APPNAME:-nvim}/site/pack/core/opt"
+      mkdir -p "$p/mini.nvim/.git" && echo partial >"$p/mini.nvim/README.md"
+      exit 124
+    fi
+    mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/${NVIM_APPNAME:-nvim}/site/pack" ;;
+  nvim:*)                exit 0 ;;
+  atuin:init\ bash*)     echo 'export SS_STUB_ATUIN=1' ;;
+  atuin:--version)       echo "atuin 18.15.2" ;;
+  atuin:*)               exit 0 ;;
+  kubectl:completion\ bash) echo 'complete -F __start_kubectl kubectl # stub' ;;
+  helm:completion\ bash) echo 'complete -F __start_helm helm # stub' ;;
+  tmux:-V)               echo "tmux 3.5a" ;;
+  lazygit:--version)     echo "commit=, build date=, version=0.50.0, os=linux" ;;
+  hx:--version)          echo "helix 25.07.1" ;;
+  *:--version)           echo "$name 1.0.0" ;;
+  *)                     exit 0 ;;
+esac

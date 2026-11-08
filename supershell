@@ -1,0 +1,684 @@
+#!/usr/bin/env bash
+# supershell — a modern, careful Bash environment for Ubuntu.
+# https://github.com/saeed-morshidy/supershell  ·  MIT License
+set -Eeuo pipefail
+
+_self="$(readlink -f -- "${BASH_SOURCE[0]}")"
+SS_ROOT="$(dirname -- "$_self")"
+SS_VERSION="$(cat "$SS_ROOT/VERSION" 2>/dev/null || echo dev)"
+
+# shellcheck source=lib/common.sh
+. "$SS_ROOT/lib/common.sh"
+# shellcheck source=lib/os.sh
+. "$SS_ROOT/lib/os.sh"
+# shellcheck source=lib/state.sh
+. "$SS_ROOT/lib/state.sh"
+# shellcheck source=lib/backup.sh
+. "$SS_ROOT/lib/backup.sh"
+# shellcheck source=lib/bashrc.sh
+. "$SS_ROOT/lib/bashrc.sh"
+# shellcheck source=lib/tools.sh
+. "$SS_ROOT/lib/tools.sh"
+# shellcheck source=lib/modules.sh
+. "$SS_ROOT/lib/modules.sh"
+
+SS_FORCE=0 SS_ALLOW_ROOT=0 SS_PURGE_PACKAGES=0 SS_PURGE=0
+
+# ---- failure handling: any error or Ctrl-C inside a transaction rolls back ----
+_on_fail() {
+  local code=$?
+  # Errors inside $(...) or ( … ) subshells are handled by their caller; only the
+  # main process may roll back.
+  [[ $BASHPID -eq $$ ]] || return "$code"
+  trap - ERR INT TERM
+  if journal_mine; then
+    err "supershell stopped before finishing (exit $code)."
+    journal_rollback || true
+    detail "Details: ${SS_LOG/#$HOME/\~}"
+  fi
+  exit "$code"
+}
+trap _on_fail ERR
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap '[[ $? -ne 0 && $BASHPID -eq $$ ]] && journal_mine && { trap - EXIT; journal_rollback || true; }' EXIT
+
+usage() {
+  cat <<EOF
+${_c_bld}supershell${_c_rst} $SS_VERSION — a modern, careful Bash environment for Ubuntu
+
+${_c_bld}Usage${_c_rst}
+  supershell <command> [options]
+
+${_c_bld}Setup${_c_rst}
+  list                      Show modules and what is installed
+  install [module…]         Install the default modules, or the ones named
+  update                    Update supershell itself and the managed tools
+  remove <module…>          Remove modules
+  uninstall [--purge-packages] [--purge]
+                            Remove everything supershell added
+
+${_c_bld}Everyday${_c_rst}
+  mode [modern|classic]     classic = plain Ubuntu Bash, e.g. while following a tutorial
+  devops [on|off]           DevOps prompt info + completions (kubectl, docker, helm…)
+  devops aliases [on|off]   Short aliases (k, d, dc, tf) — off by default
+  icons [auto|nerd|plain]   Icon style
+  font [<name>]             Terminal font (DejaVu Sans Mono, Cascadia Code, JetBrains Mono…)
+  prompt [<style>|edit|apply|custom on|off|cap on|off]
+                            Prompt style (pastel-powerline, tokyo-night, catppuccin-…),
+                            supershell's ready-made tweaks, and your own
+  keys                      Keyboard shortcuts and commands cheat sheet
+  config list|get|set       Show or change settings
+
+${_c_bld}Health & recovery${_c_rst}
+  doctor                    Check that everything is healthy
+  bench                     Measure shell start-up time and memory
+  restore [--list|<id>]     Put back files from a backup
+  repair                    Roll back an interrupted run
+
+${_c_bld}Options${_c_rst}
+  -y, --yes       Answer yes to confirmations     -n, --dry-run   Show what would happen
+      --force     Allow unsupported systems           --allow-root    Allow running as root
+      --custom    supershell's prompt (the default)   --default       the starship preset as published
+      --font=NAME Terminal font on the first install (see: supershell font)
+
+Modules: $(modules_all | paste -sd' ' -)
+EOF
+}
+
+# ---------------------------------------------------------------------------------
+_preflight() {
+  os_require_supported "$SS_FORCE"
+  bash_version_ok || die "Bash 5.1 or newer is required (found $BASH_VERSION)"
+  if [[ $EUID -eq 0 && $SS_ALLOW_ROOT != 1 ]]; then
+    die "Run supershell as your normal user (it asks for sudo only when it needs it). Use --allow-root to override."
+  fi
+  [[ "$SS_DRY_RUN" == 1 ]] && return 0
+  ensure_dirs
+  config_init_defaults
+}
+
+# Ubuntu packages the selected modules need that aren't installed yet (one per line).
+_apt_needed() {
+  local m t pkg min cand
+  for m in "$@"; do
+    module_load "$m"
+    for t in $MOD_TOOLS; do
+      pkg="$(manifest_get "$t" apt)"; min="$(manifest_get "$t" apt_min)"
+      [[ -n "$pkg" ]] || continue
+      if v="$(apt_installed_version "$pkg")" && version_ge "$v" "${min:-0}"; then continue; fi
+      if cand="$(apt_candidate_version "$pkg")" && version_ge "$cand" "${min:-0}"; then echo "$pkg"; fi
+    done
+    for pkg in $MOD_PKGS; do   # plain Ubuntu packages a module needs (fonts, git, …)
+      apt_installed_version "$pkg" >/dev/null && continue
+      apt_candidate_version "$pkg" >/dev/null && echo "$pkg"
+    done
+  done
+  return 0
+}
+
+# Install all needed Ubuntu packages in ONE apt call, asking for the sudo password
+# once, at the start — not in the middle of the run.
+_apt_batch() {
+  local pkgs=() p
+  mapfile -t pkgs < <(_apt_needed "$@" | sort -u)
+  ((${#pkgs[@]})) || return 0
+  info "Ubuntu packages to install: ${pkgs[*]}"
+  if [[ $EUID -ne 0 ]] && ! sudo -n true 2>/dev/null; then
+    detail "sudo will ask for your password once (it is never stored)."
+    sudo -v || die "sudo is needed to install Ubuntu packages"
+  fi
+  apt_update_once
+  run_root apt-get install -y -qq --no-install-recommends "${pkgs[@]}" \
+    || die "apt failed. Run 'sudo apt-get install ${pkgs[*]}' to see the full error."
+  for p in "${pkgs[@]}"; do journal_add apt "$p"; apt_record "$p"; done
+  ok "Installed from Ubuntu: ${pkgs[*]}"
+}
+
+# --dry-run: show exactly where each tool would come from, change nothing.
+_plan() {
+  local m t pkg min cand have_v src
+  printf '\n%-9s %-13s %s\n' MODULE TOOL SOURCE
+  for m in "$@"; do
+    module_load "$m"
+    for t in $MOD_TOOLS; do
+      pkg="$(manifest_get "$t" apt)"; min="$(manifest_get "$t" apt_min)"
+      if [[ -n "$(manifest_get "$t" "sha256.$OS_ARCH")" ]]; then src="release $(manifest_get "$t" version) (pinned sha256)"
+      elif [[ -n "$(manifest_get "$t" sums)" ]]; then src="release $(manifest_get "$t" version) (upstream checksum file)"
+      else src="release $(manifest_get "$t" version) (NOT INSTALLABLE: no checksum yet)"; fi
+      if [[ -n "$pkg" ]]; then
+        if have_v="$(apt_installed_version "$pkg")" && version_ge "$have_v" "${min:-0}"; then
+          src="apt $pkg $have_v (already installed)"
+        elif cand="$(apt_candidate_version "$pkg")" && version_ge "$cand" "${min:-0}"; then
+          src="apt $pkg $cand"
+        fi
+      fi
+      printf '%-9s %-13s %s\n' "$m" "$t" "$src"
+    done
+    [[ -n "$MOD_TOOLS" ]] || printf '%-9s %-13s %s\n' "$m" "-" "configuration only"
+  done
+  echo
+  info "Dry run: nothing was changed. (apt sources may be stale; a real run refreshes them.)"
+}
+
+# Copy this checkout to ~/.local/share/supershell/app so the shell always sources a
+# stable path (the clone can be moved or deleted afterwards).
+_sync_app() {
+  [[ "$SS_ROOT" == "$SS_APP" ]] && return 0
+  local new="$SS_APP.new.$$" item
+  rm -rf -- "$new"; mkdir -p "$new"
+  journal_add created "$new"
+  for item in supershell VERSION LICENSE lib modules shell config manifest; do
+    [[ -e "$SS_ROOT/$item" ]] && cp -a -- "$SS_ROOT/$item" "$new/"
+  done
+  if [[ -d "$SS_APP" ]]; then
+    rm -rf -- "$SS_APP.old"
+    mv -- "$SS_APP" "$SS_APP.old"
+    journal_add restore_app "$SS_APP"
+  else
+    journal_add absent "$SS_APP"
+  fi
+  mv -- "$new" "$SS_APP"
+  printf '%s\n' "$SS_ROOT" >"$SS_STATE/source"
+  link_bin "$SS_APP/supershell" supershell
+}
+
+_record_baseline() {
+  [[ -f "$SS_STATE/baseline" ]] && return 0
+  bashrc_has_block && return 0
+  local t; t="$(_bench_once 5 "")"
+  printf 'startup_ms=%s\nmeasured=%s\n' "$t" "$(date -Is)" >"$SS_STATE/baseline"
+  detail "baseline start-up time before supershell: ${t} ms"
+}
+
+cmd_list() {
+  local m state
+  printf '%-9s %-10s %-8s %s\n' MODULE STATUS DEFAULT DESCRIPTION
+  for m in $(modules_all); do
+    module_load "$m"
+    state="-"; module_is_installed "$m" && state="${_c_grn}installed${_c_rst}"
+    printf '%-9s %-10b %-8s %s\n' "$m" "$state" "$MOD_DEFAULT" "$MOD_DESC"
+  done
+}
+
+cmd_install() {
+  _preflight
+  local mods=() m list
+  for m in "$@"; do module_exists "$m" || die "Unknown module '$m'. Run: supershell list"; done
+  if (($#)); then list="$(modules_resolve "$@")"; else list="$(modules_default)"; fi
+  mapfile -t mods <<<"$list"
+  ((${#mods[@]})) && [[ -n "${mods[0]}" ]] || die "No modules selected"
+  info "supershell $SS_VERSION on Ubuntu $OS_VERSION ($OS_ARCH)"
+  info "Modules to install: ${mods[*]}"
+  if dups="$(bashrc_duplicate_inits)" && [[ -n "$dups" ]]; then
+    warn "Your ~/.bashrc already initialises some tools supershell manages:"
+    detail "$dups"
+    detail "They will keep working, but the same tool may load twice. 'supershell doctor' reports this."
+  fi
+  local prompt_choice="" font_choice=""
+  if [[ " ${mods[*]} " == *" core "* ]] && ! module_is_installed core; then
+    prompt_choice="$(_ask_prompt_profile)"
+  fi
+  if [[ " ${mods[*]} " == *" fonts "* ]] && ! module_is_installed fonts; then
+    font_choice="$(_ask_font)"
+    # the chosen font's package joins the single apt batch below
+    ensure_dirs; config_init_defaults
+    [[ "$SS_DRY_RUN" == 1 ]] || config_set font "$font_choice"
+  fi
+  if [[ "$SS_DRY_RUN" == 1 ]]; then
+    [[ -n "$prompt_choice" ]] && detail "prompt settings: $([[ $prompt_choice == on ]] && echo "supershell (full width)" || echo "starship preset as published")"
+    [[ -n "$font_choice" ]] && detail "terminal font: $font_choice"
+    _plan "${mods[@]}"; return 0
+  fi
+  confirm "Continue?" y || { info "Nothing changed."; return 0; }
+  [[ -n "$prompt_choice" ]] && { ensure_dirs; config_init_defaults; config_set prompt_custom "$prompt_choice"; }
+
+  _record_baseline || true
+  journal_begin install "${mods[*]}"
+  _apt_batch "${mods[@]}"
+  _sync_app
+  # From here on use the installed copy (configs, shell files, modules).
+  for m in "${mods[@]}"; do
+    module_load "$m"
+    info "Module: $m — $MOD_DESC"
+    module_is_installed "$m" || journal_add module "$m"
+    # Test hooks (used by tests/integration): fail or hang inside a module.
+    [[ "${SUPERSHELL_TEST_FAIL_AT:-}" == "$m" ]] && { err "test: simulated failure in $m"; false; }
+    [[ "${SUPERSHELL_TEST_HANG_AT:-}" == "$m" ]] && sleep 600
+    mod_install
+    module_mark_installed "$m"
+  done
+  bashrc_install_block
+  _apply_all
+  journal_commit
+  rm -rf -- "$SS_APP.old"
+  echo
+  ok "Done. Open a new terminal (or run: exec bash) to start using supershell."
+  detail "Check health: supershell doctor   ·   Shortcuts: supershell keys   ·   Plain Bash: supershell mode classic"
+}
+
+# First install only: supershell's prompt (the preset with its ready-made tweaks, the
+# default) or the starship preset exactly as published. --custom / --default answer
+# it; --yes and no terminal = supershell's (the default).
+# Prints "on" (custom) or "off" (default); the question itself goes to stderr.
+_ask_prompt_profile() {
+  local ans
+  if [[ -n "${SS_PROMPT_CHOICE:-}" ]]; then echo "$SS_PROMPT_CHOICE"; return 0; fi
+  if [[ "$SS_ASSUME_YES" == 1 || ! -t 0 ]]; then echo on; return 0; fi
+  {
+    echo
+    info "Prompt settings"
+    detail "1) supershell (default) — the pastel-powerline style across the full terminal"
+    detail "   width, square at both ends, the clock at the right"
+    detail "2) starship — the pastel-powerline preset exactly as starship publishes it"
+    detail "Change later: supershell prompt custom on|off"
+  } >&2
+  read -r -p "  ? Choose 1 or 2 [1] " ans || ans=""
+  case "$ans" in 2|s|starship|d|default) echo off ;; *) echo on ;; esac
+}
+
+# The supported fonts, as "setting|family|package|arabic" lines (from the fonts module).
+_fonts_table() { ( module_load fonts; printf '%s\n' "${FONTS_SUPPORTED[@]}" ); }
+
+# First install of the fonts module: which terminal font. --font=NAME answers it;
+# --yes and no terminal = the default (DejaVu Sans Mono). Prints the setting value.
+_ask_font() {
+  local ans names=() l i=1 def
+  def="$(config_default font)"
+  if [[ -n "${SS_FONT_CHOICE:-}" ]]; then
+    _cfg_schema_line font | cut -d'|' -f2 | tr ' ' '\n' | grep -qx -- "$SS_FONT_CHOICE" \
+      || die "Unknown font '$SS_FONT_CHOICE'. Run: supershell font"
+    echo "$SS_FONT_CHOICE"; return 0
+  fi
+  if [[ "$SS_ASSUME_YES" == 1 || ! -t 0 ]]; then echo "$def"; return 0; fi
+  {
+    echo
+    info "Terminal font (from Ubuntu's archive; Arabic always shows in fixed-width cells)"
+    while IFS='|' read -r n fam _ ar; do
+      names+=("$n")
+      detail "$i) $fam$([[ $ar == yes ]] && echo "  — has Arabic itself" || echo "  — Arabic from DejaVu Sans Mono")$([[ $n == "$def" ]] && echo "  (default)")"
+      i=$((i + 1))
+    done < <(_fonts_table)
+    detail "Change later: supershell font <name>"
+  } >&2
+  read -r -p "  ? Choose 1-${#names[@]} [1] " ans || ans=""
+  if [[ "$ans" =~ ^[0-9]+$ ]] && ((ans >= 1 && ans <= ${#names[@]})); then echo "${names[ans-1]}"; else echo "$def"; fi
+}
+
+cmd_font() {
+  ensure_dirs; config_init_defaults
+  if [[ $# -eq 0 ]]; then
+    echo "font: $(config_get font) ($(config_get font_size) pt)"
+    local n fam ar
+    while IFS='|' read -r n fam _ ar; do
+      detail "$(printf '%-17s %-17s %s' "$n" "$fam" "$([[ $ar == yes ]] && echo "Arabic: built in" || echo "Arabic: DejaVu Sans Mono")")"
+    done < <(_fonts_table)
+    detail "change: supershell font <name>   ·   size: supershell config set font_size <N>"
+    return 0
+  fi
+  config_set font "$1"; _apply_all
+  module_is_installed fonts || warn "The fonts module is not installed yet: supershell install fonts"
+  ok "font: $1 — Ptyxis updates right away; other terminals: set it in their preferences"
+}
+
+_apply_all() {
+  local m
+  for m in $(modules_installed); do
+    module_exists "$m" || continue
+    module_load "$m"
+    if declare -F mod_apply >/dev/null; then mod_apply; fi
+  done
+}
+
+cmd_remove() {
+  (($#)) || die "Which module? e.g. supershell remove lazygit"
+  ensure_dirs
+  local m
+  for m in "$@"; do
+    module_exists "$m" || die "Unknown module '$m'"
+    module_is_installed "$m" || { warn "$m is not installed"; continue; }
+    [[ "$m" == core ]] && { confirm "Removing 'core' disables the supershell prompt and tools. Continue?" n || continue; }
+    module_load "$m"
+    info "Removing $m"
+    mod_remove
+    module_mark_removed "$m"
+    ok "$m removed"
+  done
+  _apply_all
+}
+
+cmd_uninstall() {
+  ensure_dirs
+  confirm "Remove supershell and everything it added? (your own files are kept)" n || { info "Nothing changed."; return 0; }
+  local m mods=()
+  mapfile -t mods < <(modules_installed)
+  for (( i=${#mods[@]}-1; i>=0; i-- )); do
+    m="${mods[i]}"
+    module_exists "$m" || continue
+    module_load "$m"; info "Removing $m"; mod_remove || warn "problems while removing $m"
+    module_mark_removed "$m"
+  done
+  bashrc_remove_block
+  local pkgs; pkgs="$(apt_recorded | paste -sd' ' -)"
+  if [[ -n "$pkgs" ]]; then
+    info "supershell installed these Ubuntu packages: $pkgs"
+    if [[ $SS_PURGE_PACKAGES == 1 ]] || confirm "Remove them too? (other software may use them)" n; then
+      # shellcheck disable=SC2086  # word-splitting the package list is intended
+      run_root apt-get remove -y -qq $pkgs || warn "apt could not remove some packages"
+      rm -f -- "$SS_APT_FILE"
+    else
+      detail "Kept. Remove later with: sudo apt remove $pkgs"
+    fi
+  fi
+  [[ -L "$SS_BIN/supershell" ]] && rm -f -- "$SS_BIN/supershell"
+  safe_rm "$SS_APP" "$SS_OPT" "$SS_CACHE"
+  # your own prompt tweaks are yours: keep a copy before the folder goes
+  if [[ -s "$SS_CONFIG_DIR/prompt.toml" ]] && backup_file "$SS_CONFIG_DIR/prompt.toml" >/dev/null; then
+    detail "your prompt.toml was saved in the backups (supershell restore)"
+  fi
+  rm -rf -- "$SS_CONFIG_DIR"
+  rm -f -- "$SS_STATE/modules" "$SS_STATE/tools" "$SS_STATE/configs" "$SS_STATE/source" "$SS_STATE/baseline"
+  if [[ $SS_PURGE == 1 ]]; then
+    rm -rf -- "$SS_STATE"; rmdir -- "$SS_DATA" 2>/dev/null || true
+    ok "supershell removed completely (including backups)."
+  else
+    rmdir -- "$SS_DATA" 2>/dev/null || true
+    ok "supershell removed. Backups are kept in ${SS_STATE/#$HOME/\~}/backups (delete with --purge)."
+  fi
+  detail "Open a new terminal to get your previous shell back."
+}
+
+cmd_update() {
+  _preflight
+  local src
+  src="$(cat "$SS_STATE/source" 2>/dev/null || true)"
+  if [[ -n "$src" && -d "$src/.git" ]]; then
+    info "Updating supershell from $src"
+    git -C "$src" pull --ff-only --quiet || die "Could not update $src (local changes?). Resolve it, then run supershell update again."
+    # shellcheck disable=SC2046  # one argument per module is intended
+    exec "$src/supershell" install --yes $(modules_installed | paste -sd' ' -)
+  fi
+  info "Updating installed tools to the versions in the manifest"
+  # shellcheck disable=SC2046
+  SS_ASSUME_YES=1 cmd_install $(modules_installed | paste -sd' ' -)
+}
+
+cmd_mode() {
+  ensure_dirs; config_init_defaults
+  [[ $# -eq 0 ]] && { echo "mode: $(config_get mode)"; return 0; }
+  config_set mode "$1"
+  ok "mode set to $1 — takes effect in new terminals (or run: exec bash)"
+  if [[ "$1" == classic ]]; then
+    detail "classic = your normal Ubuntu Bash prompt and commands. Switch back: supershell mode modern"
+  fi
+}
+
+cmd_devops() {
+  ensure_dirs; config_init_defaults
+  case "${1:-status}" in
+    on|off) config_set devops "$1" ;;
+    aliases)
+      [[ -n "${2:-}" ]] || { echo "devops aliases: $(config_get devops_aliases)"; return 0; }
+      config_set devops_aliases "$2" ;;
+    status)
+      echo "devops: $(config_get devops)   aliases: $(config_get devops_aliases)"
+      return 0 ;;
+    *) die "Usage: supershell devops [on|off|aliases on|off]" ;;
+  esac
+  module_is_installed devops || warn "The devops module is not installed yet: supershell install devops"
+  _apply_all
+  ok "Saved. Takes effect in new terminals (or run: exec bash)"
+}
+
+cmd_icons() {
+  ensure_dirs; config_init_defaults
+  [[ $# -eq 0 ]] && { echo "icons: $(config_get icons)"; return 0; }
+  config_set icons "$1"; _apply_all
+  ok "icons set to $1 — takes effect in new terminals"
+}
+
+PROMPT_TEMPLATE='# Your changes to the supershell prompt. Applied on top of whichever style you use
+# (supershell prompt <style>); your values win. supershell never edits this file.
+# Every setting: https://starship.rs/config/   Apply after editing: supershell prompt apply
+# Remove the # in front of a line to use it.
+
+# [time]
+# disabled = true              # hide the clock
+
+# [username]
+# disabled = true              # hide your user name
+
+# [os]
+# disabled = true              # hide the Ubuntu icon
+
+# [directory]
+# truncation_length = 2        # show only the last 2 folders
+
+# [cmd_duration]
+# min_time = 5000              # show how long a command took only after 5 s
+'
+
+cmd_prompt() {
+  ensure_dirs; config_init_defaults
+  local f="$SS_CONFIG_DIR/prompt.toml" styles
+  styles="$(_cfg_schema_line prompt_style | cut -d'|' -f2)"
+  case "${1:-}" in
+    "")
+      echo "prompt style: $(config_get prompt_style)"
+      detail "styles: $styles"
+      detail "ready-made tweaks: $(config_get prompt_custom)  (supershell prompt custom on|off)"
+      detail "round cap at the start: $(config_get prompt_cap)  (supershell prompt cap on|off)"
+      detail "change: supershell prompt <style>   ·   your own tweaks: supershell prompt edit" ;;
+    edit)
+      [[ -e "$f" ]] || printf '%s' "$PROMPT_TEMPLATE" >"$f"
+      "${VISUAL:-${EDITOR:-nano}}" "$f" || true
+      _prompt_apply ;;
+    apply) _prompt_apply ;;
+    custom)
+      [[ -n "${2:-}" ]] || { echo "custom prompt settings: $(config_get prompt_custom)"; return 0; }
+      config_set prompt_custom "$2"; _prompt_apply
+      ok "custom prompt settings: $2 — takes effect in new terminals" ;;
+    cap)
+      [[ -n "${2:-}" ]] || { echo "round cap at the start (custom settings): $(config_get prompt_cap)"; return 0; }
+      config_set prompt_cap "$2"; _prompt_apply
+      [[ "$(config_get prompt_custom)" == on ]] || detail "applies with the ready-made settings: supershell prompt custom on"
+      ok "round cap at the start: $2 — takes effect in new terminals" ;;
+    -*) die "Usage: supershell prompt [<style>|edit|apply|custom on|off|cap on|off]" ;;
+    *)
+      config_set prompt_style "$1"; _prompt_apply
+      ok "prompt style: $1 — takes effect in new terminals" ;;
+  esac
+}
+
+_prompt_apply() {
+  local f="$SS_CONFIG_DIR/prompt.toml" e="$SS_STATE/prompt-error"
+  _apply_all
+  if [[ -s "$e" ]]; then
+    warn "Your ${f/#$HOME/\~} was NOT applied — starship reports:
+$(sed 's/^/   /' "$e")
+   Your prompt is unchanged. Fix the file and run: supershell prompt apply"
+  elif [[ -s "$f" ]]; then
+    ok "Your prompt changes are applied — open a new terminal to see them"
+  fi
+}
+
+cmd_config() {
+  ensure_dirs; config_init_defaults
+  case "${1:-list}" in
+    list) local line; for line in "${SS_CONFIG_SCHEMA[@]}"; do
+            printf '%-20s %-8s (%s)\n' "${line%%|*}" "$(config_get "${line%%|*}")" "$(cut -d'|' -f2 <<<"$line")"; done ;;
+    get) config_get "${2:?key}" ;;
+    set) config_set "${2:?key}" "${3:?value}"; _apply_all; ok "${2} = ${3}" ;;
+    *) die "Usage: supershell config list|get <key>|set <key> <value>" ;;
+  esac
+}
+
+cmd_restore() {
+  case "${1:---list}" in
+    --list|-l)
+      local out; out="$(backup_list)"
+      [[ -n "$out" ]] || { info "No backups yet."; return 0; }
+      printf '%-32s %s\n' BACKUP FILES
+      local id files
+      while IFS=$'\t' read -r id files; do printf '%-32s %s\n' "$id" "$files"; done <<<"$out"
+      detail "Restore one with: supershell restore <BACKUP>" ;;
+    *) confirm "Restore the files from backup '$1'? (current versions are backed up first)" y || return 0
+       backup_restore "$1" ;;
+  esac
+}
+
+cmd_repair() {
+  if journal_active; then journal_rollback; else ok "Nothing to repair — the last run finished cleanly."; fi
+}
+
+# ---- doctor ------------------------------------------------------------------------
+cmd_doctor() {
+  ensure_dirs; config_init_defaults
+  echo "${_c_bld}System${_c_rst}"
+  local lvl=0; os_support_level || lvl=$?
+  case $lvl in 0) check_ok "Ubuntu $OS_VERSION ($OS_ARCH)";; 1) check_warn "Ubuntu $OS_VERSION — best-effort support";; *) check_fail "Unsupported OS: ${OS_ID:-?} ${OS_VERSION:-?}";; esac
+  bash_version_ok && check_ok "bash $BASH_VERSION" || check_fail "bash $BASH_VERSION (need 5.1+)"
+  case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+    *UTF-8*|*utf8*|*UTF8*) check_ok "UTF-8 locale (${LC_ALL:-${LC_CTYPE:-$LANG}})" ;;
+    *) check_fail "Locale is not UTF-8 — Arabic and icons will break. Fix: sudo update-locale LANG=C.UTF-8" ;;
+  esac
+  if [[ -n "${VTE_VERSION:-}" ]]; then
+    if (( VTE_VERSION >= 5800 )); then check_ok "VTE terminal $VTE_VERSION (has BiDi support for Arabic)"
+    else check_warn "VTE $VTE_VERSION is older than 0.58 — no BiDi support"; fi
+  elif [[ -n "${SSH_CONNECTION:-}" ]]; then check_ok "SSH session — Arabic display depends on your local terminal"
+  else check_warn "Not a VTE terminal (Ptyxis / GNOME Terminal). Arabic RTL display may be wrong here. See docs/arabic.md"; fi
+  case ":$PATH:" in *":$SS_BIN:"*) check_ok "~/.local/bin is on PATH";; *) check_warn "~/.local/bin is not on PATH in this shell (new terminals fix this)";; esac
+
+  echo "${_c_bld}Shell integration${_c_rst}"
+  local n; n="$(bashrc_block_count)"
+  case $n in 1) check_ok "~/.bashrc has the supershell block";; 0) check_fail "~/.bashrc has no supershell block — run: supershell install";; *) check_fail "~/.bashrc has $n supershell blocks (expected 1)";; esac
+  [[ -r "$SS_APP/shell/init.bash" ]] && check_ok "installed copy at ${SS_APP/#$HOME/\~}" || check_fail "missing ${SS_APP/#$HOME/\~}/shell/init.bash"
+  local dups; dups="$(bashrc_duplicate_inits)"
+  if [[ -n "$dups" ]]; then check_warn "your ~/.bashrc also initialises tools supershell manages (may load twice):"; detail "$dups"
+  else check_ok "no duplicate tool initialisation"; fi
+  journal_active && check_fail "an interrupted run was found — run: supershell repair" || check_ok "no interrupted runs"
+  check_ok "mode=$(config_get mode) icons=$(config_get icons) devops=$(config_get devops)"
+  if bash_out="$(bash -ic 'true' 2>&1 </dev/null | grep -v -e 'no job control' -e 'cannot set terminal process group' -e 'Inappropriate ioctl')" && [[ -n "$bash_out" ]]; then
+    check_warn "interactive bash prints output at start-up (can break scp/rsync):"; detail "${bash_out:0:200}"
+  else check_ok "interactive bash starts silently"; fi
+
+  local m
+  for m in $(modules_installed); do
+    module_exists "$m" || { check_warn "unknown module '$m' in state"; continue; }
+    module_load "$m"
+    echo "${_c_bld}Module: $m${_c_rst}"
+    mod_doctor
+  done
+  echo
+  printf '%s passed, %s warnings, %s problems\n' "$DOC_OK" "$DOC_WARN" "$DOC_FAIL"
+  ((DOC_FAIL == 0))
+}
+
+# ---- bench -------------------------------------------------------------------------
+# _bench_once <runs> <env-assignments> -> mean ms of `bash -i -c exit`
+_bench_once() {
+  local runs="$1" envs="$2" i start end total=0
+  for ((i = 0; i < runs + 1; i++)); do
+    start=${EPOCHREALTIME/[.,]/}
+    # shellcheck disable=SC2086  # $envs holds zero or more VAR=value words
+    env $envs bash -i -c exit </dev/null >/dev/null 2>&1 || true
+    end=${EPOCHREALTIME/[.,]/}
+    ((i == 0)) && continue   # warm-up
+    total=$((total + end - start))
+  done
+  echo $((total / runs / 1000))
+}
+
+# shellcheck disable=SC2086
+_rss_kb() { env $1 bash -i -c 'ps -o rss= -p $$' </dev/null 2>/dev/null | tr -d ' ' | tail -1; }
+
+cmd_bench() {
+  ensure_dirs
+  local runs="${1:-20}"
+  info "Measuring interactive bash start-up ($runs runs each)…"
+  if have hyperfine; then
+    hyperfine -N --warmup 3 --runs "$runs" \
+      -n 'without supershell' 'env SUPERSHELL_DISABLE=1 bash -i -c exit' \
+      -n 'classic mode' 'env SUPERSHELL_MODE=classic bash -i -c exit' \
+      -n 'supershell' 'bash -i -c exit'
+  fi
+  local off cls on
+  off="$(_bench_once "$runs" SUPERSHELL_DISABLE=1)"
+  cls="$(_bench_once "$runs" SUPERSHELL_MODE=classic)"
+  on="$(_bench_once "$runs" "")"
+  printf '\n%-24s %8s %10s\n' "" "start-up" "memory"
+  printf '%-24s %6s ms %7s KB\n' "without supershell" "$off" "$(_rss_kb SUPERSHELL_DISABLE=1)"
+  printf '%-24s %6s ms %7s KB\n' "supershell (classic)" "$cls" "$(_rss_kb SUPERSHELL_MODE=classic)"
+  printf '%-24s %6s ms %7s KB\n' "supershell (modern)" "$on" "$(_rss_kb '')"
+  [[ -f "$SS_STATE/baseline" ]] && printf '%-24s %6s ms   (measured before first install)\n' "original baseline" "$(sed -n 's/^startup_ms=//p' "$SS_STATE/baseline")"
+  printf '\nOverhead added by supershell: %s ms\n' "$((on - off))"
+}
+
+cmd_keys() {
+  cat <<'EOF'
+ Shell (modern mode)                         Files & search
+  Ctrl-R    search command history            ll / la    detailed list (eza)
+  Ctrl-T    insert a file path (fuzzy)        lt         tree view
+  Alt-C     cd into a folder (fuzzy)          bat FILE   view with syntax colours
+  z NAME    jump to a frequent folder         fd NAME    find files
+  zi        pick a folder interactively       rg TEXT    search inside files
+  **<Tab>   fuzzy completion (vim **<Tab>)
+
+ Git                                          Editor (nvim, leader = Space)
+  git diff  side-by-side-ready diffs (delta)  Space f   find file    Space /  search text
+  lazygit   full Git UI (if installed)        Space b   buffers      Space e  file browser
+                                              gd / gr   definition / references
+ Modes                                        K         docs         Space ca code action
+  supershell mode classic   plain Ubuntu      Space cf  format       ]d [d    next/prev problem
+  supershell devops on|off  DevOps extras     :ArabicView  right-to-left window (Arabic)
+
+ Plus module (ble.sh): grey suggestion → Right arrow accepts · commands are syntax-coloured
+ The original command is always one backslash away: \ls  \cat  \grep
+EOF
+}
+
+# ---------------------------------------------------------------------------------
+main() {
+  local args=() a
+  for a in "$@"; do
+    case "$a" in
+      -y|--yes) SS_ASSUME_YES=1 ;;
+      -n|--dry-run) SS_DRY_RUN=1 ;;
+      --force) SS_FORCE=1 ;;
+      --allow-root) SS_ALLOW_ROOT=1 ;;
+      --purge-packages) SS_PURGE_PACKAGES=1 ;;
+      --purge) SS_PURGE=1 ;;
+      --custom) SS_PROMPT_CHOICE=on ;;
+      --default) SS_PROMPT_CHOICE=off ;;
+      --font=*) SS_FONT_CHOICE="${a#--font=}" ;;
+      -h|--help) args+=(help) ;;
+      -V|--version) args+=(version) ;;
+      *) args+=("$a") ;;
+    esac
+  done
+  set -- "${args[@]+"${args[@]}"}"
+  local cmd="${1:-help}"; shift || true
+  case "$cmd" in
+    list|ls) cmd_list ;;
+    install) cmd_install "$@" ;;
+    update|upgrade) cmd_update ;;
+    remove|rm) cmd_remove "$@" ;;
+    uninstall) cmd_uninstall ;;
+    doctor|check) cmd_doctor ;;
+    bench) cmd_bench "$@" ;;
+    mode) cmd_mode "$@" ;;
+    devops) cmd_devops "$@" ;;
+    icons) cmd_icons "$@" ;;
+    prompt) cmd_prompt "$@" ;;
+    font) cmd_font "$@" ;;
+    config) cmd_config "$@" ;;
+    restore) cmd_restore "$@" ;;
+    repair) cmd_repair ;;
+    keys|shortcuts) cmd_keys ;;
+    version) echo "supershell $SS_VERSION" ;;
+    help) usage ;;
+    *) err "Unknown command '$cmd'"; usage >&2; exit 2 ;;
+  esac
+}
+
+main "$@"

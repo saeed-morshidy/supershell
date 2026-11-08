@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# test stub: serves files from $T_DL by URL basename; fails when offline.
+echo "curl $*" >>"$T_APT/log"
+[[ -n "${T_OFFLINE:-}" ]] && { echo "curl: (6) Could not resolve host: github.com" >&2; exit 6; }
+out="" url=""
+while (($#)); do case "$1" in -o) out="$2"; shift 2 ;; --proto|--retry|--connect-timeout) shift 2 ;; -*) shift ;; *) url="$1"; shift ;; esac; done
+src="$T_DL/${url##*/}"
+[[ -f "$src" ]] || { echo "curl: (22) The requested URL returned error: 404" >&2; exit 22; }
+cp "$src" "$out"

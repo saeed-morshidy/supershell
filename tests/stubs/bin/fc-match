@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# test stub: which family draws Arabic (charset 0627) for "<family>:charset=0627".
+# T_FC_ARABIC_PROPORTIONAL=1 simulates the bug the fontconfig rules prevent.
+fam="${1%%:*}"
+case "$fam" in
+  "DejaVu Sans Mono"|"Cascadia Code") echo "$fam" ;;
+  *) [[ -n "${T_FC_ARABIC_PROPORTIONAL:-}" ]] && echo "DejaVu Sans" || echo "DejaVu Sans Mono" ;;
+esac

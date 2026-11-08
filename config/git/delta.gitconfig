@@ -1,0 +1,14 @@
+# supershell — Git display settings. Included from ~/.gitconfig with one line:
+#   [include] path = ~/.config/supershell/git/delta.gitconfig
+# Only changes how diffs LOOK in your terminal. Git commands and their output to
+# files/pipes are unchanged. If delta is missing, Git falls back to `less`.
+[core]
+	pager = "if command -v delta >/dev/null 2>&1; then delta; else less -FRX; fi"
+[interactive]
+	diffFilter = "if command -v delta >/dev/null 2>&1; then delta --color-only; else cat; fi"
+[delta]
+	navigate = true
+	line-numbers = true
+	syntax-theme = ansi
+	file-style = bold blue
+	hunk-header-style = file line-number syntax

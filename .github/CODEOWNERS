@@ -1,0 +1,12 @@
+# Every file is owned by the maintainers team; 3 of them must approve each PR
+# (enforced by branch protection — see GOVERNANCE.md and scripts/setup-github.sh).
+#
+# Add the other maintainers' GitHub usernames next to each owner (at least 4 people in
+# total are needed for 3 approvals, since nobody approves their own last push), or
+# replace them with an organisation team such as @org/maintainers.
+*                       @saeed-morshidy
+
+# Changes that affect what gets downloaded and executed on users' machines.
+/manifest/              @saeed-morshidy
+/lib/tools.sh           @saeed-morshidy
+/.github/               @saeed-morshidy

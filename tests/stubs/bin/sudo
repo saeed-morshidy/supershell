@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# test stub: run without privileges, log the call. Understands -v and -n.
+echo "sudo $*" >>"$T_APT/log"
+while [[ "${1:-}" == -* ]]; do
+  case "$1" in -v|-k|-K) exit 0 ;; esac
+  shift
+done
+[[ $# -eq 0 ]] && exit 0
+exec "$@"

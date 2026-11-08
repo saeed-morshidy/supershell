@@ -1,0 +1,24 @@
+# supershell ble.sh settings (loaded with --rcfile). Your own ~/.blerc is read last.
+
+# Suggestions from history appear in grey; press → (Right) or End to accept.
+bleopt complete_auto_delay=120
+bleopt complete_auto_history=1
+# Keep the screen calm: no extra markers after commands (the prompt shows status).
+bleopt exec_errexit_mark=
+bleopt exec_elapsed_mark=
+bleopt exec_exit_mark=
+bleopt prompt_eol_mark=
+# No audible/visual bell.
+bleopt edit_abell=
+bleopt edit_vbell=
+# Colours: ANSI names so they follow the terminal's light/dark theme.
+ble-face -s command_builtin  fg=green
+ble-face -s command_alias    fg=teal
+ble-face -s command_function fg=green
+ble-face -s command_file     fg=green
+ble-face -s command_keyword  fg=purple
+ble-face -s varname_unset    fg=red
+ble-face -s syntax_error     fg=white,bg=red
+ble-face -s auto_complete    fg=gray
+
+[[ -r ~/.blerc ]] && source ~/.blerc

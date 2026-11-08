@@ -1,0 +1,115 @@
+# supershell prompt — rendered by `supershell` into ~/.config/supershell/starship-*.toml
+# Edit this template in the repo. Icons are NOT set here: they come from starship's own
+# presets (`starship preset nerd-font-symbols` / `plain-text-symbols`) plus
+# fallback-*.toml for the few modules those presets do not cover. @DEVOPS_OFF@ is
+# filled in from the devops setting.
+#
+# Design: two lines, only what you need right now, colours taken from your terminal
+# theme (ANSI names, so light and dark themes both work). Language/toolchain
+# modules are off unless devops is on, because each one can run a slow command.
+
+"$schema" = "https://starship.rs/config-schema.json"
+add_newline = true
+command_timeout = 500
+scan_timeout = 20
+
+format = """\
+$username$hostname$directory$git_branch$git_state$git_status\
+$python$kubernetes$docker_context$helm$terraform$golang\
+$cmd_duration$jobs$status
+$character"""
+
+[username]
+format = "[$user]($style)@"
+style_user = "yellow"
+style_root = "bold red"
+
+[hostname]
+ssh_only = true
+format = "[$hostname]($style) "
+style = "yellow"
+
+[directory]
+style = "bold blue"
+truncation_length = 4
+truncate_to_repo = true
+truncation_symbol = "…/"
+read_only_style = "red"
+
+[git_branch]
+style = "purple"
+format = "[$symbol$branch(:$remote_branch)]($style) "
+
+[git_state]
+style = "bold yellow"
+
+[git_status]
+style = "yellow"
+# One mark per kind, with how many files: !3 = 3 modified, ?1 = 1 new (untracked),
+# +2 = 2 staged, ✘ deleted, » renamed, = conflicts, ≡ stashes, ⇡/⇣ ahead/behind.
+format = "([$all_status$ahead_behind]($style) )"
+modified = "!${count}"
+untracked = "?${count}"
+staged = "+${count}"
+deleted = "✘${count}"
+renamed = "»${count}"
+conflicted = "=${count}"
+stashed = "≡${count}"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+
+[python]
+# Shows only an active virtualenv; never runs python on every prompt.
+format = "[$symbol($virtualenv) ]($style)"
+style = "yellow"
+detect_extensions = []
+detect_files = []
+detect_folders = []
+
+[kubernetes]
+# DevOps safety: always see which cluster/namespace you are about to change.
+disabled = @DEVOPS_OFF@
+symbol = "@K8S_SYM@"
+format = "[$symbol$context( \\($namespace\\))]($style) "
+style = "cyan"
+
+[docker_context]
+disabled = @DEVOPS_OFF@
+format = "[$symbol$context]($style) "
+style = "blue"
+only_with_files = true
+
+[helm]
+disabled = @DEVOPS_OFF@
+format = "[$symbol($version)]($style) "
+style = "white"
+
+[terraform]
+disabled = @DEVOPS_OFF@
+format = "[$symbol$workspace]($style) "
+style = "purple"
+
+[golang]
+disabled = @DEVOPS_OFF@
+format = "[$symbol($version)]($style) "
+style = "cyan"
+
+[cmd_duration]
+min_time = 2000
+format = "[$duration]($style) "
+style = "bright-black"
+
+[jobs]
+symbol = "✦"
+style = "bright-black"
+
+[status]
+disabled = false
+format = "[$status]($style) "
+style = "red"
+
+[character]
+success_symbol = "[❯](green)"
+error_symbol = "[❯](red)"
+vimcmd_symbol = "[❮](green)"

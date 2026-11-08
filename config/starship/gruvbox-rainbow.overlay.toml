@@ -1,0 +1,42 @@
+# supershell additions to starship's own `gruvbox-rainbow` preset.
+#
+# The preset itself is NOT stored here: it is taken from the installed starship
+# (`starship preset gruvbox-rainbow`) every time the prompt is rendered. This file only
+# ADDS what the preset lacks; it never changes a value the preset sets (merge rule:
+# the preset wins). The modules below are inserted into the preset's format right
+# before its line break, i.e. at the end of the first line.
+
+[git_status]
+# counts: !3 = 3 modified, ?1 = 1 new (untracked), +2 staged, ✘ deleted, » renamed,
+# = conflicts, ≡ stashes, ⇡/⇣ ahead/behind
+modified = "!${count}"
+untracked = "?${count}"
+staged = "+${count}"
+deleted = "✘${count}"
+renamed = "»${count}"
+conflicted = "=${count}"
+stashed = "≡${count}"
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+
+[kubernetes]
+# DevOps safety: always see which cluster/namespace you are about to change.
+disabled = @DEVOPS_OFF@
+symbol = "󱃾 "
+style = "bold fg:color_blue"
+format = '[$symbol$context( \($namespace\))]($style) '
+
+[cmd_duration]
+min_time = 2000
+style = "fg:color_yellow"
+format = "[ $duration]($style) "
+
+[jobs]
+symbol = "✦"
+style = "fg:color_purple"
+
+[status]
+disabled = false
+style = "bold fg:color_red"
+format = "[✘ $status]($style) "

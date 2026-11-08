@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# test stub: dpkg-query -W -f=... <pkg>
+pkg="${*: -1}"
+v="$(awk -v p="$pkg" '$1==p{print $2}' "$T_APT/installed")"
+[[ -n "$v" ]] || exit 1
+printf 'install ok installed\t%s' "$v"

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# test stub: tiny key/value store for org.gnome.Ptyxis
+db="$T_TMP/gsettings"; [[ -f "$db" ]] || printf "use-system-font=true\nfont-name='Monospace 11'\n" >"$db"
+[[ -n "${T_NO_PTYXIS:-}" ]] && exit 1
+case "$1" in
+  list-keys) printf 'use-system-font\nfont-name\n' ;;
+  get) sed -n "s/^$3=//p" "$db" ;;
+  set) v="$4"; [[ "$3" == font-name ]] && v="'$4'"; sed -i "/^$3=/d" "$db"; echo "$3=$v" >>"$db" ;;
+esac

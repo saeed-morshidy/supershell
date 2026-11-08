@@ -1,0 +1,4 @@
+# Kubernetes manifests get schema validation through yaml-language-server.
+[language-server.yaml-language-server.config.yaml]
+schemaStore = { enable = true }
+schemas = { kubernetes = ["k8s/**/*.yaml", "kubernetes/**/*.yaml", "*.k8s.yaml", "manifests/**/*.yaml"] }

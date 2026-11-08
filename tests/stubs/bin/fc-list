@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# test stub: fonts of the (fake) installed packages; `… family` prints family names.
+# The matching fonts come first, then many others — like a real desktop, whose font
+# list is far bigger than a pipe buffer (catches `fc-list | grep -q` + pipefail).
+fams=("DejaVu Sans Mono")
+ls "$HOME/.local/share/fonts/supershell" 2>/dev/null | grep -q Symbols && fams+=("Symbols Nerd Font Mono")
+while read -r pkg _; do
+  case "$pkg" in
+    fonts-cascadia-code) fams+=("Cascadia Code") ;;  fonts-jetbrains-mono) fams+=("JetBrains Mono") ;;
+    fonts-firacode) fams+=("Fira Code") ;;  fonts-ibm-plex) fams+=("IBM Plex Mono") ;;  fonts-ubuntu) fams+=("Ubuntu Sans Mono") ;;
+  esac
+done <"$T_APT/installed"
+[[ " $* " == *" family"* ]] && names=1 || names=0
+for f in "${fams[@]}"; do
+  if ((names)); then echo "$f"; else echo "/usr/share/fonts/${f// /}.ttf: $f:style=Regular"; fi
+done
+for ((i = 0; i < 3000; i++)); do
+  if ((names)); then echo "Filler Sans $i"; else echo "/usr/share/fonts/truetype/filler/Filler$i-Regular.ttf: Filler Sans $i:style=Regular"; fi
+done
