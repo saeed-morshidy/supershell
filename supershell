@@ -547,7 +547,7 @@ cmd_doctor() {
     else check_warn "VTE $VTE_VERSION is older than 0.58 — no BiDi support"; fi
   elif [[ -n "${SSH_CONNECTION:-}" ]]; then check_ok "SSH session — Arabic display depends on your local terminal"
   else check_warn "Not a VTE terminal (Ptyxis / GNOME Terminal). Arabic RTL display may be wrong here. See docs/arabic.md"; fi
-  case ":$PATH:" in *":$SS_BIN:"*) check_ok "~/.local/bin is on PATH";; *) check_warn "~/.local/bin is not on PATH in this shell (new terminals fix this)";; esac
+  case ":$SS_USER_PATH:" in *":$SS_BIN:"*) check_ok "~/.local/bin is on PATH";; *) check_warn "~/.local/bin is not on PATH in this shell (new terminals fix this)";; esac
 
   echo "${_c_bld}Shell integration${_c_rst}"
   local n; n="$(bashrc_block_count)"

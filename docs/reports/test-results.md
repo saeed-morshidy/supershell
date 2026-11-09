@@ -11,18 +11,37 @@ passed unless it actually ran.
 | Automated suite on the real laptop (Ubuntu 26.04.1, bash 5.3, real apt tools) | maintainer's laptop | **71 passed, 0 failed, 5 skipped** (before the 3 new download tests; skips: tmux ×3, Neovim ×1, root guard ×1) |
 | Automated suite after adding download tests | maintainer's laptop | **74 passed, 0 failed, 5 skipped** (tmux ×3, Neovim ×1, root guard ×1) |
 | Automated suite at the first commit (starship 1.27.0, prompt styles, fonts, user prompt layer) | maintainer's laptop | **91 passed, 0 failed, 4 skipped** (tmux ×3, root guard ×1) |
+| Automated suite after the first-CI fixes, with tmux + shellcheck installed | maintainer's laptop | **96 passed, 0 failed, 1 skipped** (root guard); shellcheck 0.11.0 clean on both CI commands |
 | Automated suite with Neovim 0.12.6 installed | maintainer's laptop | **78 passed, 0 failed, 4 skipped** (tmux ×3, root guard ×1); the Neovim Arabic test now runs and passes |
 | Real install of `editor` + `fonts`, `doctor` | maintainer's laptop | ✅ install OK (font from the cached file; Neovim re-downloaded, see bugs); doctor 32 passed, 2 warnings (not run inside Ptyxis; no language servers yet), 0 problems |
 | Neovim profile on the laptop | maintainer's laptop | ✅ loads with empty `v:errmsg`; 5/5 plugins installed and active; `termbidi=true`; Arabic line with diacritics round-trips byte-for-byte after edits |
 | `bash -n` syntax check, all scripts | build environment | ✅ pass |
 | TOML/XML validity of shipped configs (rendered prompts, Helix, Atuin, fontconfig) | build environment | ✅ pass |
-| ShellCheck | CI `lint` | ⏳ not executed (not installable offline) |
+| ShellCheck | laptop (0.11.0) + CI `lint` | ✅ clean locally; CI: see the latest run |
 | Suite in `ubuntu:24.04` and `ubuntu:26.04` containers | CI `tests` | ⏳ not executed yet (runs on first push) |
 | Real install / doctor / Neovim profile / Arabic in Neovim / bench / uninstall | CI `e2e (ubuntu-26.04)` | ⏳ not executed yet |
 | Neovim Lua profile loads without errors | CI `e2e` | ⏳ not executed (no Neovim here); code reviewed by hand |
 | Arabic visual behaviour (A1–A23) | manual, Ubuntu 26.04 + Ptyxis | ⏳ not executed — needs a human with a screen |
 | Real start-up time on the target laptop | manual, `supershell bench` | ⏳ not executed |
 | SSH session behaviour | partly automated (icons fall back to plain); real SSH in manual plan A21 | ⏳ manual part not executed |
+
+## Bugs found by the first CI run (GitHub Actions, run 42533623944)
+
+- **e2e:** the install runs before `~/.local/bin` is on PATH (fresh server, `su -c`, CI),
+  so the CLI could not find the starship and nvim it had just installed there: no prompt
+  configs were rendered and the editor plugins were silently skipped. Fixed: the CLI
+  puts `~/.local/bin` on its own PATH (doctor still reports the user's PATH). Test:
+  `test_installed_tools_are_found_when_local_bin_is_not_on_path`; e2e step
+  "editor plugins installed during install".
+- **e2e:** without plugins, `doctor` started nvim, which made vim.pack download them, and
+  read its progress on stderr as a profile error. Fixed: no load check (a warning) until
+  plugins are installed; only `v:errmsg` counts. Test: `test_doctor_never_downloads_editor_plugins`.
+- **tests (ubuntu-24.04):** the mixed Arabic/English editing test used the Home key, whose
+  escape code the 24.04 container's inputrc does not map (the Arabic cursor steps were
+  correct). The test now uses readline's own `C-a`.
+- **lint:** shellcheck had never run locally (not installed). Fixed the real warnings
+  (`cd` without `|| exit`); SC2015/SC2016/SC2088 are disabled in `.shellcheckrc` with the
+  reason for each (all cases reviewed).
 
 ## Bugs found on real hardware (first laptop run)
 

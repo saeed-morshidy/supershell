@@ -43,7 +43,9 @@ test_cursor_movement_and_editing_in_mixed_line() {
   _tmux_keys -l 'echo "abc سلام xyz"'
   _tmux_keys Left Left Left Left Left Left      # " z y x space م
   _tmux_keys -l '*'
-  _tmux_keys Home; _tmux_keys Right Right Right Right Right Right Right Right Right Right Right  # after: echo "abc س
+  # C-a, not Home: Home's escape code depends on the terminal type and /etc/inputrc
+  # (ubuntu:24.04 containers don't map it), while C-a is readline's own key.
+  _tmux_keys C-a; _tmux_keys Right Right Right Right Right Right Right Right Right Right Right  # after: echo "abc س
   _tmux_keys -l '+'
   _tmux_keys Enter
   local screen; screen="$(_tmux_screen)"; _tmux_stop

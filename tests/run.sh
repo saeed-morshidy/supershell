@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run the supershell test suite.   tests/run.sh [unit|integration|arabic|perf] [-k pattern]
 set -uo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit 1
 groups=(unit integration arabic perf) filter=""
 while (($#)); do
   case "$1" in -k) filter="$2"; shift 2 ;; *) groups=("$1"); shift ;; esac

@@ -106,11 +106,17 @@ mod_doctor() {
     version_ge "$v" 0.12 && check_ok "neovim $v" || check_fail "neovim $v is older than 0.12"
   else check_fail "nvim not found"; fi
   [[ -f "$NVIM_CFG/init.lua" ]] && check_ok "profile at ${NVIM_CFG/#$HOME/\~}" || check_fail "profile missing at ${NVIM_CFG/#$HOME/\~}"
-  [[ -d "$NVIM_DATA/site/pack" ]] && check_ok "editor plugins installed" || check_warn "editor plugins not installed yet (open nvim once with network)"
-  if have nvim; then
-    local err
-    err="$(NVIM_APPNAME="$NVIM_APPNAME_SS" timeout 30 nvim --headless "+lua io.stdout:write(#vim.v.errmsg > 0 and vim.v.errmsg or '')" +qa 2>&1 || true)"
-    [[ -z "$err" ]] && check_ok "profile loads without errors" || check_fail "profile error: ${err:0:160}"
+  if [[ -d "$NVIM_DATA/site/pack" ]]; then
+    check_ok "editor plugins installed"
+    # Only v:errmsg counts (stdout); stderr carries vim.pack progress, not errors.
+    if have nvim; then
+      local err
+      err="$(NVIM_APPNAME="$NVIM_APPNAME_SS" timeout 30 nvim --headless "+lua io.stdout:write(#vim.v.errmsg > 0 and vim.v.errmsg or '')" +qa 2>/dev/null || true)"
+      if [[ -z "$err" ]]; then check_ok "profile loads without errors"; else check_fail "profile error: ${err:0:160}"; fi
+    fi
+  else
+    # Starting nvim now would download the plugins: a health check must not do that.
+    check_warn "editor plugins not installed yet — open nvim once with network (profile load not checked)"
   fi
   local n=0 s
   for s in bash-language-server pyright gopls yaml-language-server terraform-ls marksman; do

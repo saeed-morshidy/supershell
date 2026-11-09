@@ -2,3 +2,11 @@
 source-path=SCRIPTDIR
 # Module files are sourced by the CLI and use variables defined there.
 disable=SC2034,SC2154
+# `A && check_ok … || check_fail …`: the check_* helpers always return 0, so the
+# else-branch can only run when A fails — the idiom is safe here.
+disable=SC2015
+# Single-quoted $ is intended: awk/sed programs and starship format strings.
+disable=SC2016
+# "~/…" inside quotes is shown to the user as text (and git expands ~ itself in
+# include.path); real paths in code use $HOME.
+disable=SC2088

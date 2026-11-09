@@ -23,6 +23,8 @@ First public version of supershell.
 - Downloads never hang: connect/speed/total timeouts, retries only for transient errors (not HTTP 404), distinct error messages; a file already in `~/.cache/supershell/dl/` (e.g. fetched with a browser) is reused and still checksum-verified.
 - Editor plugin install: never leaves half-cloned plugins after a timeout, says it may take minutes, and is undone by a rollback.
 - Init cache (`starship init` etc.) records which binary wrote it and is rebuilt when that changes; before, switching starship from apt to the release kept running the old binary (a release keeps its older build date).
+- The CLI finds the tools it installed in `~/.local/bin` even when that folder is not on PATH yet (fresh servers, `su -c`, CI): prompt configs and editor plugins were silently skipped there.
+- `doctor` never starts nvim before the editor plugins are installed (it made vim.pack download them).
 - A downloaded archive is deleted only when the whole run succeeds; after a rollback, the (verified) file is reused.
 - `doctor` no longer reports the icon font missing on systems with many fonts (SIGPIPE under `pipefail`).
 - starship 1.27.0 pinned (apt ≥ 1.27, else the verified release).

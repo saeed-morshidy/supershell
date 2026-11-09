@@ -13,6 +13,12 @@ SS_CONFIG_DIR="${SUPERSHELL_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/supershell
 SS_CACHE="${SUPERSHELL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/supershell}"
 SS_LOG="$SS_STATE/install.log"
 
+# Tools supershell installs from releases are linked into $SS_BIN. On a fresh system
+# (or a server, `su -c`, cron…) that folder is often not on PATH yet, and the CLI must
+# still find what it just installed (e.g. starship to render the prompt).
+SS_USER_PATH="$PATH"   # as the user has it (doctor reports on this one)
+case ":$PATH:" in *":$SS_BIN:"*) ;; *) PATH="$SS_BIN:$PATH" ;; esac
+
 SS_ASSUME_YES="${SS_ASSUME_YES:-0}"
 SS_DRY_RUN="${SS_DRY_RUN:-0}"
 

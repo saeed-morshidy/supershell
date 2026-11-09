@@ -188,17 +188,37 @@ test_unknown_module_is_an_error() {
 }
 
 test_unverified_release_aborts_and_rolls_back() {
-  # ble.sh has no pinned hash and no upstream checksum file in the shipped manifest.
-  if grep -A5 '^\[blesh\]' "$T_REPO/manifest/tools.ini" | grep -qE '^sha256.x86_64 = [0-9a-f]{64}'; then
-    t_skip "blesh is pinned now"
+  # Helix has no Ubuntu package, no pinned hash and no upstream checksum file.
+  if grep -A5 '^\[helix\]' "$T_REPO/manifest/tools.ini" | grep -qE '^sha256.x86_64 = [0-9a-f]{64}'; then
+    t_skip "helix is pinned now"
   fi
-  local v; v="$(awk '/^\[blesh\]/{f=1} f&&/^version/{print $3; exit}' "$T_REPO/manifest/tools.ini")"
-  mkdir -p "$T_TMP/b/ble-$v"; echo "# ble" >"$T_TMP/b/ble-$v/ble.sh"
-  tar -cJf "$T_DL/ble-$v.tar.xz" -C "$T_TMP/b" "ble-$v"
-  local out; out="$(ss install plus --yes 2>&1)" && t_fail "must refuse unverified ble.sh"
+  local v; v="$(awk '/^\[helix\]/{f=1} f&&/^version/{print $3; exit}' "$T_REPO/manifest/tools.ini")"
+  mkdir -p "$T_TMP/h/helix-$v-x86_64-linux"; echo "#!/bin/sh" >"$T_TMP/h/helix-$v-x86_64-linux/hx"
+  tar -cJf "$T_DL/helix-$v-x86_64-linux.tar.xz" -C "$T_TMP/h" "helix-$v-x86_64-linux"
+  local out; out="$(ss install helix --yes 2>&1)" && t_fail "must refuse unverified helix"
   assert_contains "$out" "Refusing to install an unverified download"
   assert_no_file "$HOME/.local/state/supershell/journal"
   assert_eq "$(cat "$HOME/.local/state/supershell/modules" 2>/dev/null)" ""
+}
+
+test_suggestions_are_part_of_the_default_install() {
+  # ble.sh (grey suggestions as you type) comes from Ubuntu's package, in the one apt batch
+  t_ubuntu_bashrc
+  ss install --yes >/dev/null 2>&1 || t_fail "install failed"
+  grep -qx plus "$HOME/.local/state/supershell/modules" || t_fail "plus not installed by default"
+  assert_contains "$(grep '^apt-get install' "$T_APT/log")" "ble.sh"
+  assert_eq "$(grep -c '^apt-get install' "$T_APT/log")" 1 "one apt batch"
+  if grep -q 'akinomyoga' "$T_APT/log"; then t_fail "ble.sh must not be downloaded"; fi
+  t_ibash 'echo "$BLE_VERSION/$SS_STUB_BLE_ATTACHED"'; assert_eq "$T_OUT" "0.4-stub/1"
+  assert_contains "$(ss doctor 2>&1)" "ble.sh at"
+}
+
+test_no_unverified_fallback_when_ubuntu_lacks_ble_sh() {
+  sed -i '/^ble.sh /d' "$T_APT/available"   # e.g. an Ubuntu release without the package
+  local out; out="$(ss install plus --yes 2>&1)" && t_fail "must refuse"
+  assert_contains "$out" "needs the Ubuntu package 'ble.sh'"
+  if grep -q '^curl' "$T_APT/log" 2>/dev/null; then t_fail "nothing may be downloaded"; fi
+  assert_no_file "$HOME/.local/state/supershell/journal"
 }
 
 test_ubuntu_packages_installed_in_one_batch() {
@@ -305,4 +325,31 @@ test_font_command_switches_and_installs_the_package() {
   assert_contains "$(cat "$T_TMP/gsettings")" "font-name='JetBrains Mono 11'"
   ss font comic-sans >/dev/null 2>&1 && t_fail "unknown font must be refused"
   return 0
+}
+
+test_installed_tools_are_found_when_local_bin_is_not_on_path() {
+  # Fresh servers / `su -c` / CI: ~/.local/bin is not on PATH yet, but release tools
+  # are linked there. The prompt must still be rendered (found by the e2e job).
+  ss install core --yes >/dev/null 2>&1 || t_fail "install failed"
+  mkdir -p "$HOME/.local/bin"; mv "$T_FAKE_BIN/starship" "$HOME/.local/bin/starship"
+  rm -f "$HOME"/.config/supershell/starship-*.toml
+  local p; p="$(tr ':' '\n' <<<"$PATH" | grep -vx "$HOME/.local/bin" | paste -sd:)"
+  : >"$T_TMP/calls"
+  PATH="$p" "$T_REPO/supershell" prompt apply </dev/null >/dev/null 2>&1 || t_fail "prompt apply failed"
+  # the installed starship (the fake one records its calls) did the rendering — not
+  # nothing, and not some other starship that happens to be in /usr/bin
+  assert_contains "$(cat "$T_TMP/calls")" "starship preset"
+  assert_file "$HOME/.config/supershell/starship-plain.toml"
+  assert_file "$HOME/.config/supershell/starship-pastel-powerline.toml"
+}
+
+test_doctor_never_downloads_editor_plugins() {
+  # Without plugins, starting nvim would make vim.pack download them (found by e2e).
+  ss install editor --yes >/dev/null 2>&1 || t_fail "install failed"
+  rm -rf "$HOME/.local/share/supershell-nvim/site"
+  : >"$T_TMP/calls"
+  local out; out="$(ss doctor 2>&1)"
+  assert_contains "$out" "editor plugins not installed yet"
+  assert_not_contains "$out" "profile error"
+  if grep -q '^nvim --headless +lua' "$T_TMP/calls"; then t_fail "doctor started nvim without plugins"; fi
 }
