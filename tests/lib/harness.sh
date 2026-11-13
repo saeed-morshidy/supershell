@@ -38,6 +38,11 @@ t_sandbox() {
   export SUPERSHELL_OS_RELEASE="$T_TMP/os-release" SUPERSHELL_ARCH=x86_64
   # the fake `ble.sh` package installs here — never the host's /usr/share/blesh
   export SUPERSHELL_BLESH="$T_TMP/usr/share/blesh/ble.sh"
+  # root prompt: a fake /root, /etc and /usr/local/lib (the sudo stub runs unprivileged)
+  export SUPERSHELL_ROOT_HOME="$T_TMP/root" SUPERSHELL_ROOT_ETC="$T_TMP/etc/supershell/root" \
+         SUPERSHELL_ROOT_LIB="$T_TMP/usr/local/lib/supershell" SUPERSHELL_ROOT_OWNER=""
+  mkdir -p "$T_TMP/root"
+  printf '%s\n' '# ~/.bashrc: executed by bash(1) for non-login shells.' '[ -z "$PS1" ] && return' 'PS1='"'"'\u@\h:\w\$ '"'"'' >"$T_TMP/root/.bashrc"
   t_os ubuntu 26.04 resolute
   # Default apt archive: every tool available and new enough.
   cat >"$T_APT/available" <<'AVAIL'
@@ -87,7 +92,7 @@ t_fixture_nerd() {
 t_load_lib() {
   SS_ROOT="$T_REPO"
   # shellcheck source=/dev/null
-  for f in common os state backup bashrc tools modules; do . "$T_REPO/lib/$f.sh"; done
+  for f in common os state backup bashrc tools modules rootprompt; do . "$T_REPO/lib/$f.sh"; done
   ensure_dirs
 }
 

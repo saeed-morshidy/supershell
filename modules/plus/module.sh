@@ -29,7 +29,7 @@ mod_remove() {
 }
 
 mod_doctor() {
-  local f; f="$(compgen -G "$SS_OPT/blesh/*/ble.sh" | tail -1)"
+  local f; f="$(compgen -G "$SS_OPT/blesh/*/ble.sh" | tail -1 || true)"   # no match is normal (Ubuntu package)
   [[ -z "$f" && -r "${SUPERSHELL_BLESH:-/usr/share/blesh/ble.sh}" ]] && f="${SUPERSHELL_BLESH:-/usr/share/blesh/ble.sh}"
   [[ -n "$f" ]] && check_ok "ble.sh at ${f/#$HOME/\~}" || check_fail "ble.sh not found"
   have atuin && check_ok "atuin $(atuin --version 2>/dev/null | awk '{print $2}')" || check_fail "atuin not found"

@@ -69,7 +69,9 @@ test_init_is_cached_no_tool_runs_on_second_start() {
   t_ibash true
   : >"$T_TMP/calls"
   t_ibash true
-  assert_eq "$(cat "$T_TMP/calls")" "" "tools were executed during a cached start-up"
+  # cached: no tool regenerates its init (starship's own script still runs
+  # `starship time` and its continuation prompt when it loads — as the real one does)
+  if grep -E '^[a-z-]+ (init|--bash)' "$T_TMP/calls"; then t_fail "init regenerated during a cached start-up"; fi
 }
 
 test_init_cache_is_rebuilt_when_the_binary_changes() {
@@ -85,7 +87,7 @@ test_init_cache_is_rebuilt_when_the_binary_changes() {
   assert_contains "$(cat "$T_TMP/calls")" "starship init bash"
   assert_contains "$(head -1 "$HOME/.cache/supershell/init/starship.bash")" "bin=$HOME/.local/bin/starship"
   : >"$T_TMP/calls"; t_ibash true
-  assert_eq "$(cat "$T_TMP/calls")" "" "cache must be reused once rebuilt"
+  if grep -E '^[a-z-]+ (init|--bash)' "$T_TMP/calls"; then t_fail "cache must be reused once rebuilt"; fi
 }
 
 test_sourcing_bashrc_twice_does_not_duplicate() {
@@ -136,7 +138,7 @@ test_devops_prompt_toggle_renders_config() {
 test_icons_follow_font_and_ssh() {
   t_ubuntu_bashrc; _install core fonts
   t_ibash 'echo "$SUPERSHELL_ICONS $STARSHIP_CONFIG"'
-  assert_contains "$T_OUT" "nerd"; assert_contains "$T_OUT" "starship-pastel-powerline.toml"   # default style, Nerd icons
+  assert_contains "$T_OUT" "nerd"; assert_contains "$T_OUT" "starship-supershell-theme.toml"   # default style, Nerd icons
   T_OUT="$(SSH_CONNECTION="1.2.3.4 1 5.6.7.8 22" bash -ic 'echo "$SUPERSHELL_ICONS"' </dev/null 2>/dev/null)"
   assert_eq "$T_OUT" plain
   ss icons plain >/dev/null 2>&1
@@ -184,7 +186,8 @@ test_preset_prompts_default_and_fall_back_without_nerd_icons() {
   local g="$HOME/.config/supershell/starship-gruvbox-rainbow.toml"
   assert_file "$g"
   assert_file "$HOME/.config/supershell/starship-tokyo-night.toml"
-  t_ibash 'echo "$STARSHIP_CONFIG"'; assert_contains "$T_OUT" "starship-pastel-powerline.toml"   # default
+  t_ibash 'echo "$STARSHIP_CONFIG"'; assert_contains "$T_OUT" "starship-supershell-theme.toml"   # default
+  ss prompt pastel-powerline >/dev/null 2>&1 || t_fail "prompt pastel-powerline failed"
   # pastel-powerline is a one-line preset: supershell adds the line break (always two lines)
   local pp="$HOME/.config/supershell/starship-pastel-powerline.toml"
   grep -q '^\$fill\\$' "$pp" || t_fail "pastel-powerline: supershell's settings are not the default"
@@ -281,7 +284,7 @@ test_real_starship_renders_prompt_without_warnings() {
     out="$(STARSHIP_CACHE="$c" STARSHIP_CONFIG="$HOME/.config/supershell/starship-$1.toml" starship prompt 2>/dev/null)"
     assert_contains "$out" "مشروع"
   }
-  for f in pastel-powerline tokyo-night gruvbox-rainbow catppuccin-mocha catppuccin-latte nerd plain; do
+  for f in supershell-theme supershell-theme-root pastel-powerline tokyo-night gruvbox-rainbow catppuccin-mocha catppuccin-latte nerd plain; do
     _check "$f" default
   done
   # the preset as published, and supershell's settings with the rounded start
@@ -393,15 +396,15 @@ test_supershell_prompt_is_default_full_width_square_and_your_file_still_wins() {
 
 test_install_asks_which_prompt_once() {
   local out
-  out="$(ss install core --default --dry-run 2>&1)"; assert_contains "$out" "prompt settings: starship preset as published"
+  out="$(ss install core --default --dry-run 2>&1)"; assert_contains "$out" "prompt: starship's pastel-powerline preset as published"
   ss install core --yes >/dev/null 2>&1 || t_fail "install failed"
-  assert_eq "$(ss config get prompt_custom)" on   # --yes / no terminal = supershell's (the default)
+  assert_eq "$(ss config get prompt_style)" supershell-theme   # --yes / no terminal = the default
   ss uninstall --yes >/dev/null 2>&1
   ss install core --default --yes >/dev/null 2>&1 || t_fail "install --default failed"
-  assert_eq "$(ss config get prompt_custom)" off
+  assert_eq "$(ss config get prompt_style)/$(ss config get prompt_custom)" pastel-powerline/off
   # not asked again on a later install: the choice is kept
   ss install core --custom --yes >/dev/null 2>&1 || t_fail "reinstall failed"
-  assert_eq "$(ss config get prompt_custom)" off
+  assert_eq "$(ss config get prompt_style)" pastel-powerline
 }
 
 test_no_empty_separators_in_any_prompt_config() {
@@ -409,9 +412,58 @@ test_no_empty_separators_in_any_prompt_config() {
   _install core fonts
   ss prompt custom on >/dev/null 2>&1
   local f bad=""
-  for f in "$T_REPO"/config/starship/*.toml "$T_REPO"/config/starship/custom/*.toml \
+  for f in "$T_REPO"/config/starship/*.toml "$T_REPO"/config/starship/custom/*.toml "$T_REPO"/config/starship/themes/*.toml \
            "$HOME"/.config/supershell/starship-*.toml; do
     grep -q '\[\](' "$f" && bad+=" ${f##*/}"
   done
   [[ -z "$bad" ]] || t_fail "empty separator [](…) in:$bad"
+}
+
+test_supershell_theme_is_the_default_and_ours() {
+  t_ubuntu_bashrc; _install core fonts devops
+  local f="$HOME/.config/supershell/starship-supershell-theme.toml" r="$HOME/.config/supershell/starship-supershell-theme-root.toml" fmt
+  assert_eq "$(ss config get prompt_style)" supershell-theme
+  # supershell's own file: no starship preset in it (palettes are ours), full width, square ends
+  grep -q '^\[palettes\.supershell\]$' "$f" || t_fail "theme palettes missing"
+  grep -q '^palette = "supershell"$' "$f" || t_fail "default colours"
+  grep -q '^palette = "supershell-root"$' "$r" || t_fail "root colours"
+  fmt="$(sed -n '/^format = """/,/"""$/p' "$f")"
+  assert_eq "$(LC_ALL=C.UTF-8 grep -oP '\x{E0B0}' <<<"$fmt" | wc -l)" 5 "arrows"
+  assert_eq "$(sed -n 2p <<<"$fmt")" '$os\' "square start"
+  grep -q '^\$fill\\$' <<<"$fmt" || t_fail "not full width"
+  assert_eq "$(grep -A1 '^\$time\\$' <<<"$fmt" | tail -1)" '$line_break\' "square end after the clock"
+  # every colour the theme uses is a palette name, never a hex code
+  if grep -E '^(style|style_user|style_root|read_only_style) = .*#[0-9A-Fa-f]{6}' "$f"; then t_fail "hard-coded colour"; fi
+  # icons from starship's nerd-font-symbols preset; extras on line 2 (devops on)
+  awk '/^\[/{s=$0} s=="[git_branch]" && /^symbol/' "$f" | LC_ALL=C.UTF-8 grep -qP '[\x{E000}-\x{F8FF}]' || t_fail "no branch icon"
+  assert_contains "$(awk '/^\[/{s=$0} s=="[kubernetes]"' "$f")" "disabled = false"
+}
+
+test_theme_colours_root_colours_and_reset() {
+  t_ubuntu_bashrc; _install core fonts
+  local f="$HOME/.config/supershell/starship-supershell-theme.toml" r="$HOME/.config/supershell/starship-supershell-theme-root.toml"
+  ss theme colors nord >/dev/null 2>&1 || t_fail "theme colors failed"
+  grep -q '^palette = "nord"$' "$f" || t_fail "colours not switched"
+  grep -q '^palette = "supershell-root"$' "$r" || t_fail "root colours must stay"
+  ss theme root-colors same >/dev/null 2>&1 || t_fail "theme root-colors failed"
+  grep -q '^palette = "nord"$' "$r" || t_fail "root 'same' must follow the colours"
+  ss theme colors no-such-palette >/dev/null 2>&1 && t_fail "unknown palette must be refused"
+  # choosing colours switches to supershell-theme
+  ss prompt tokyo-night >/dev/null 2>&1; ss theme colors dracula >/dev/null 2>&1
+  assert_eq "$(ss config get prompt_style)" supershell-theme
+  # reset: defaults back, your prompt.toml backed up and set aside
+  printf '[time]\ndisabled = true\n' >"$HOME/.config/supershell/prompt.toml"
+  ss prompt cap on >/dev/null 2>&1
+  ss theme reset --yes >/dev/null 2>&1 || t_fail "theme reset failed"
+  assert_eq "$(ss config get prompt_style)|$(ss config get theme_colors)|$(ss config get theme_root_colors)|$(ss config get prompt_cap)" \
+            "supershell-theme|supershell|supershell-root|off"
+  assert_no_file "$HOME/.config/supershell/prompt.toml"
+  [[ -n "$(find "$HOME/.local/state/supershell/backups" -name prompt.toml)" ]] || t_fail "prompt.toml not backed up"
+  grep -q '^palette = "supershell"$' "$f" || t_fail "palette not reset"
+  if awk '/^\[/{s=$0} s=="[time]"' "$f" | grep -q 'disabled = true'; then t_fail "old tweak still applied"; fi
+}
+
+test_help_fits_in_80_columns() {
+  local long; long="$(NO_COLOR=1 "$T_REPO/supershell" -h | awk 'length($0) > 80')"
+  [[ -z "$long" ]] || t_fail "help lines wider than 80 columns: $long"
 }

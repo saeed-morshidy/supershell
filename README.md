@@ -36,10 +36,10 @@ cd supershell
 
 The first install asks two questions:
 
-- **prompt** — *supershell* (default): starship's pastel-powerline style across the full
-  terminal width, square at both ends, the clock at the right; or *starship*: the
-  [preset](https://starship.rs/presets/) exactly as published. `--custom` / `--default`;
-  change later with `supershell prompt custom on|off`.
+- **prompt** — *supershell-theme* (default): supershell's own theme — a colour bar
+  across the full terminal width, square ends, the clock at the right — or *starship*:
+  the pastel-powerline [preset](https://starship.rs/presets/) exactly as published.
+  `--custom` / `--default`; back to the default any time with `supershell theme reset`.
 - **terminal font** — DejaVu Sans Mono (default), Cascadia Code, JetBrains Mono, Fira Code,
   IBM Plex Mono or Ubuntu Sans Mono, installed from Ubuntu's archive. `--font=NAME`;
   change later with `supershell font <name>`.
@@ -62,7 +62,7 @@ Bash 5.1+, `sudo` for apt packages. Run it as your normal user.
 | `devops` | ✓ | k8s context / docker context / terraform workspace in the prompt; tab completion for installed tools |
 | `lazygit` | | full-screen Git UI |
 | `helix` | | Helix (`hx`), a zero-config modal editor, as a second profile |
-| `plus` | | ble.sh (syntax colours, grey suggestions) + Atuin (local history search) — adds ~100 ms start-up |
+| `plus` | ✓ | suggestions as you type + syntax colours (ble.sh, from Ubuntu's package) + Atuin (local history search) — adds ~100 ms start-up; `supershell remove plus` for the fastest shell |
 | `tmux` | | tmux with sensible defaults (never auto-started) |
 
 ```bash
@@ -79,10 +79,12 @@ supershell list                      # what's installed
 | `supershell devops on` / `off` | DevOps info in the prompt + completions |
 | `supershell devops aliases on` | short aliases `k`, `d`, `dc`, `tf` (off by default — learn the full commands first) |
 | `supershell icons auto\|nerd\|plain` | icon style (`auto` uses plain symbols over SSH) |
-| `supershell prompt [<style>]` | prompt style: `pastel-powerline` (default), `tokyo-night`, `gruvbox-rainbow`, `catppuccin-mocha` / `-macchiato` / `-frappe` / `-latte`, `simple` |
+| `supershell theme` | supershell-theme (the default prompt): `theme colors <name>` (supershell, pastel, tokyo-night, catppuccin, gruvbox, nord, dracula, rose-pine, kanagawa), `theme root-colors <name>` (default: a red `supershell-root`), `theme reset` |
+| `supershell prompt [<style>]` | other styles: `pastel-powerline`, `tokyo-night`, `gruvbox-rainbow`, `catppuccin-mocha` / `-macchiato` / `-frappe` / `-latte`, `simple` |
 | `supershell prompt custom on\|off` | supershell's prompt (full width, square ends — the default) or the starship preset as published; `prompt cap on` = the preset's rounded start |
 | `supershell prompt edit` | your own prompt tweaks (`~/.config/supershell/prompt.toml`), kept across styles and updates |
 | `supershell font [<name>]` | terminal font; Ptyxis updates right away |
+| `supershell root on\|off` | the same prompt in root shells (`su -`, `sudo -i`) — root-owned copies, prompt only, asks for sudo once |
 | `supershell keys` | shortcut cheat sheet |
 | `supershell doctor` | health check |
 | `supershell bench` | start-up time and memory, with and without supershell |

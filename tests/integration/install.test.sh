@@ -353,3 +353,82 @@ test_doctor_never_downloads_editor_plugins() {
   assert_not_contains "$out" "profile error"
   if grep -q '^nvim --headless +lua' "$T_TMP/calls"; then t_fail "doctor started nvim without plugins"; fi
 }
+
+test_root_prompt_uses_only_root_owned_copies_and_off_restores_bashrc() {
+  t_ubuntu_bashrc
+  ss install core --yes >/dev/null 2>&1 || t_fail "install failed"
+  # like a release install: ~/.local/bin/starship -> a file inside the user's home.
+  # (`starship init` names the path it was CALLED by — the link, not its target.)
+  local opt="$HOME/.local/share/supershell/opt/starship/1.27.0"
+  mkdir -p "$opt" "$HOME/.local/bin"; mv "$T_FAKE_BIN/starship" "$opt/starship"
+  ln -s "$opt/starship" "$HOME/.local/bin/starship"
+  cp "$SUPERSHELL_ROOT_HOME/.bashrc" "$T_TMP/root-bashrc.orig"
+  local out; out="$(ss root on 2>&1)" || t_fail "root on failed: $out"
+  assert_eq "$(grep -c 'supershell root prompt >>>' "$SUPERSHELL_ROOT_HOME/.bashrc")" 1
+  ss root on >/dev/null 2>&1                                 # idempotent
+  assert_eq "$(grep -c 'supershell root prompt >>>' "$SUPERSHELL_ROOT_HOME/.bashrc")" 1
+  # the security rule: nothing root reads lives in (or points into) the user's home
+  local f
+  for f in "$SUPERSHELL_ROOT_ETC"/* "$SUPERSHELL_ROOT_HOME/.bashrc"; do
+    if grep -q -- "$HOME" "$f"; then t_fail "root reads the user's home via ${f##*/}"; fi
+  done
+  assert_file "$SUPERSHELL_ROOT_LIB/starship"                # user-owned starship → copied
+  grep -q -- "$SUPERSHELL_ROOT_LIB/starship" "$SUPERSHELL_ROOT_ETC/starship-init.bash" || t_fail "init does not use root's starship copy"
+  # root gets supershell-theme with the root palette (the default)
+  cmp -s "$HOME/.config/supershell/starship-supershell-theme-root.toml" "$SUPERSHELL_ROOT_ETC/starship.toml" || t_fail "root does not get the theme's root version"
+  grep -q '^palette = "supershell-root"$' "$SUPERSHELL_ROOT_ETC/starship.toml" || t_fail "root palette"
+  # a root shell: prompt from the root-owned config, nothing else of supershell
+  T_OUT="$(HOME="$SUPERSHELL_ROOT_HOME" bash -ic 'echo "$STARSHIP_CONFIG|$(type -t ll || echo no-ll)"' </dev/null 2>/dev/null)"
+  assert_eq "$T_OUT" "$SUPERSHELL_ROOT_ETC/starship.toml|no-ll"
+  T_OUT="$(HOME="$SUPERSHELL_ROOT_HOME" SSH_CONNECTION="1 2 3 4" bash -ic 'echo "$STARSHIP_CONFIG"' </dev/null 2>/dev/null)"
+  assert_eq "$T_OUT" "$SUPERSHELL_ROOT_ETC/starship-plain.toml"
+  # doctor notices when root's copy falls behind the user's prompt
+  assert_contains "$(ss doctor 2>&1)" "root prompt: on, same as yours"
+  ss prompt tokyo-night >/dev/null 2>&1                     # root follows on its own
+  assert_contains "$(ss doctor 2>&1)" "root prompt: on, same as yours"
+  echo "# changed elsewhere" >>"$SUPERSHELL_ROOT_ETC/starship.toml"   # out of date some other way
+  assert_contains "$(ss doctor 2>&1)" "root prompt is older than your current prompt"
+  # off: /root/.bashrc back byte-for-byte, root-owned files gone
+  ss root off >/dev/null 2>&1 || t_fail "root off failed"
+  assert_same_file "$SUPERSHELL_ROOT_HOME/.bashrc" "$T_TMP/root-bashrc.orig"
+  assert_no_file "$SUPERSHELL_ROOT_ETC"
+  assert_no_file "$SUPERSHELL_ROOT_LIB/starship"
+}
+
+test_root_prompt_refuses_custom_modules_and_uninstall_removes_it() {
+  ss install core --yes >/dev/null 2>&1 || t_fail "install failed"
+  # [custom] modules run commands: never copied into a root shell
+  printf '[custom.hello]\ncommand = "echo hi"\nwhen = true\n' >"$HOME/.config/supershell/prompt.toml"
+  ss prompt apply >/dev/null 2>&1
+  local out; out="$(ss root on 2>&1)" && t_fail "root on must refuse [custom]"
+  assert_contains "$out" "[custom] modules"
+  assert_no_file "$SUPERSHELL_ROOT_ETC/init.bash"
+  if grep -q 'supershell root prompt' "$SUPERSHELL_ROOT_HOME/.bashrc"; then t_fail "block added anyway"; fi
+  rm -f "$HOME/.config/supershell/prompt.toml"; ss prompt apply >/dev/null 2>&1
+  ss root on >/dev/null 2>&1 || t_fail "root on failed"
+  ss uninstall --yes >/dev/null 2>&1
+  if grep -q 'supershell root prompt' "$SUPERSHELL_ROOT_HOME/.bashrc"; then t_fail "uninstall left the root block"; fi
+  assert_no_file "$SUPERSHELL_ROOT_ETC"
+}
+
+test_root_prompt_follows_theme_changes() {
+  # Found on the laptop: root kept an old copy after the theme / root colours changed.
+  ss install core --yes >/dev/null 2>&1 || t_fail "install failed"
+  ss root on >/dev/null 2>&1 || t_fail "root on failed"
+  local rc="$SUPERSHELL_ROOT_ETC/starship.toml"
+  grep -q '^palette = "supershell-root"$' "$rc" || t_fail "root starts with the root palette"
+  ss theme root-colors nord >/dev/null 2>&1 || t_fail "root-colors failed"
+  grep -q '^palette = "nord"$' "$rc" || t_fail "root copy not updated by theme root-colors"
+  ss theme root-colors same >/dev/null 2>&1; ss theme colors dracula >/dev/null 2>&1
+  grep -q '^palette = "dracula"$' "$rc" || t_fail "root copy not updated by theme colors (root = same)"
+  ss config set theme_root_colors supershell-root >/dev/null 2>&1
+  grep -q '^palette = "supershell-root"$' "$rc" || t_fail "root copy not updated by config set"
+  ss theme reset --yes >/dev/null 2>&1
+  cmp -s "$HOME/.config/supershell/starship-supershell-theme-root.toml" "$rc" || t_fail "root copy not updated by reset"
+  assert_contains "$(ss doctor 2>&1)" "root prompt: on, same as yours"
+  # root off: nothing follows any more, and nothing asks for sudo
+  ss root off >/dev/null 2>&1; : >"$T_APT/log"
+  ss theme colors nord >/dev/null 2>&1
+  if grep -q '^sudo' "$T_APT/log"; then t_fail "sudo used while the root prompt is off"; fi
+  assert_no_file "$rc"
+}

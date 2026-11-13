@@ -14,7 +14,14 @@ _tmux_start() {
   T_SOCK="ss-ar-$$"
   tmux -L "$T_SOCK" -f /dev/null -u new-session -d -x 160 -y 20 -c "$HOME" \
     "env -i HOME='$HOME' PATH='$PATH' LANG=C.UTF-8 LC_ALL=C.UTF-8 TERM=xterm-256color T_TMP='$T_TMP' bash -i"
-  sleep 0.6
+  # Wait for the prompt instead of a fixed delay: keys sent before readline is ready
+  # (a slow start-up on a busy machine) lose their escape sequences — a flaky test.
+  local i
+  for ((i = 0; i < 100; i++)); do
+    [[ "$(tmux -L "$T_SOCK" capture-pane -p 2>/dev/null)" == *"[ss-prompt]"* ]] && return 0
+    sleep 0.1
+  done
+  t_fail "the interactive shell did not show its prompt within 10 s"
 }
 _tmux_keys() { tmux -L "$T_SOCK" send-keys "$@"; sleep 0.4; }
 _tmux_screen() { tmux -L "$T_SOCK" capture-pane -p -J; }

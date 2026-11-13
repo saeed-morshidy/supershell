@@ -25,7 +25,7 @@ cd supershell
 
 أول تثبيت يسألك سؤالين:
 
-- **شكل الـ prompt** — *supershell* (الافتراضي): شكل pastel-powerline من starship بعرض الـ terminal كله، وطرفاه مربّعان، والساعة على اليمين؛ أو *starship*: الشكل [كما ينشره starship](https://starship.rs/presets/) بالضبط. الخياران `--custom` و`--default`، وتقدر تغيّر لاحقًا بـ `supershell prompt custom on|off`.
+- **شكل الـ prompt** — *supershell-theme* (الافتراضي): ثيم supershell الخاص — شريط ألوان بعرض الـ terminal كله، وطرفاه مربّعان، والساعة على اليمين — أو *starship*: شكل pastel-powerline [كما ينشره starship](https://starship.rs/presets/) بالضبط. الخياران `--custom` و`--default`، وترجع للافتراضي في أي وقت بـ `supershell theme reset`.
 - **خط الـ terminal** — DejaVu Sans Mono (الافتراضي)، أو Cascadia Code، أو JetBrains Mono، أو Fira Code، أو IBM Plex Mono، أو Ubuntu Sans Mono، من أرشيف Ubuntu. الخيار `--font=NAME`، وتقدر تغيّر لاحقًا بـ `supershell font <name>`.
 
 و`--yes` تختار الافتراضي في الاثنين.
@@ -40,10 +40,12 @@ cd supershell
 | `supershell mode modern` | تجربة supershell الكاملة |
 | `supershell devops on/off` | تشغيل أو إيقاف معلومات DevOps في الـ prompt والـ completion |
 | `supershell devops aliases on` | اختصارات مثل `k` و`d` (مُطفأة افتراضيًا، والأفضل أن تتعلم الأوامر كاملة أولًا) |
-| `supershell prompt [<style>]` | شكل الـ prompt: `pastel-powerline` (الافتراضي)، `tokyo-night`، `gruvbox-rainbow`، `catppuccin-mocha`… |
+| `supershell theme` | ثيم supershell (الافتراضي): `theme colors <name>` لتغيير الألوان (supershell، pastel، nord، dracula…)، و`theme root-colors <name>` لألوان الـ root (الافتراضي أحمر `supershell-root`)، و`theme reset` للرجوع للأصل |
+| `supershell prompt [<style>]` | أشكال تانية: `pastel-powerline`، `tokyo-night`، `gruvbox-rainbow`، `catppuccin-mocha`… |
 | `supershell prompt custom on/off` | شكل supershell (بعرض الشاشة وطرفاه مربّعان — الافتراضي) أو شكل starship كما هو؛ و`prompt cap on` يرجّع البداية المدوّرة |
 | `supershell prompt edit` | تعديلاتك أنت على الـ prompt (`~/.config/supershell/prompt.toml`)، وتبقى مع أي شكل وبعد أي تحديث |
 | `supershell font [<name>]` | خط الـ terminal (DejaVu Sans Mono، Cascadia Code، JetBrains Mono…)، والعربي دائمًا بعرض ثابت؛ Ptyxis يتحدّث فورًا |
+| `supershell root on/off` | نفس شكل الـ prompt وأنت root (`su -` أو `sudo -i`) — نسخ يملكها root، والـ prompt فقط، ويطلب sudo مرة واحدة |
 | `supershell keys` | ملخص الاختصارات |
 | `supershell doctor` | فحص سلامة البيئة |
 | `supershell uninstall` | إزالة كل ما أضافه supershell (ملفاتك الشخصية تبقى كما هي) |

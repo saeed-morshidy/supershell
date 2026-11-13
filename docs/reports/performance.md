@@ -12,7 +12,8 @@ loading cached init files):
 | Interactive start-up (`bash -i -c exit`, mean of 20) | 4 ms | 5 ms | 1 ms | < 40 ms ✅ |
 | Memory per shell (RSS) | 4036 KB | 4052 KB | 16 KB | < 3 MB ✅ |
 | Background processes after start-up | — | 0 | — | 0 ✅ |
-| Tools executed on a cached start-up | — | 0 | — | 0 ✅ |
+| Tool `init` scripts regenerated on a cached start-up | — | 0 | — | 0 ✅ |
+| Short starship runs at start-up (its own init: `starship time`, continuation prompt) | — | 2 | — | measured in the start-up time above |
 
 ## What the real cost will be (to be measured)
 

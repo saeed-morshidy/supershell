@@ -132,6 +132,24 @@ core_render_starship() {
     _dev "$dir/$preset.overlay.toml" >"$w/ov"
     awk -f "$merge" "$w/ov" "$w/p" >"$w/out" && core_write_prompt "$w/out" "$name"
   done
+
+  # supershell-theme: supershell's own theme file (no preset involved). Icons come from
+  # starship's nerd-font-symbols preset (theme values win). Two renders: yours, and the
+  # one root shells get (`supershell root on`) with the root palette.
+  local theme="$dir/themes/supershell-theme.toml" pal variant
+  [[ "$(config_get prompt_cap)" == on ]] && theme="$dir/themes/supershell-theme.cap.toml"
+  if [[ -f "$theme" ]]; then
+    starship preset nerd-font-symbols >"$w/sym" 2>/dev/null || : >"$w/sym"
+    for variant in supershell-theme supershell-theme-root; do
+      pal="$(config_get theme_colors)"
+      if [[ "$variant" == *-root ]]; then
+        pal="$(config_get theme_root_colors)"; [[ "$pal" == same ]] && pal="$(config_get theme_colors)"
+      fi
+      _dev "$theme" | sed "s/^palette = .*/palette = \"$pal\"/" >"$w/p"
+      awk -f "$merge" "$w/sym" "$w/p" >"$w/p2"
+      awk -f "$merge" "$dir/fallback-nerd.toml" "$w/p2" >"$w/out" && core_write_prompt "$w/out" "$variant"
+    done
+  fi
   unset -f _dev
   rm -rf -- "$w"
 }
@@ -168,7 +186,8 @@ mod_doctor() {
   [[ -f "$SS_CONFIG_DIR/starship-plain.toml" ]] && check_ok "prompt config rendered" || check_fail "prompt config missing (run: supershell install core)"
   local ps; ps="$(config_get prompt_style)"
   if [[ "$ps" != simple ]]; then
-    [[ -f "$SS_CONFIG_DIR/starship-$ps.toml" ]] && check_ok "prompt style: $ps (starship preset)" \
+    local what="starship preset"; [[ "$ps" == supershell-theme ]] && what="supershell's own theme, colours: $(config_get theme_colors), root: $(config_get theme_root_colors)"
+    [[ -f "$SS_CONFIG_DIR/starship-$ps.toml" ]] && check_ok "prompt style: $ps ($what)" \
       || check_warn "prompt style '$ps' could not be rendered by this starship version — using the simple prompt"
   fi
   mod_doctor_prompt

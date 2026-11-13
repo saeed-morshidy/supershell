@@ -124,7 +124,7 @@ test_manifest_expands_version() {
   t_load_lib
   assert_eq "$(manifest_get neovim version)" "$(awk '/^\[neovim\]/{f=1} f&&/^version/{print $3; exit}' "$T_REPO/manifest/tools.ini")"
   assert_contains "$(manifest_get neovim url.x86_64)" "/v$(manifest_get neovim version)/nvim-linux-x86_64.tar.gz"
-  assert_eq "$(manifest_get blesh apt)" ""
+  assert_eq "$(manifest_get helix apt)" ""   # a key the section does not have
 }
 
 test_every_manifest_tool_has_both_architectures() {
@@ -132,6 +132,11 @@ test_every_manifest_tool_has_both_architectures() {
   local t
   for t in $(grep -oE '^\[[a-z-]+\]' "$T_REPO/manifest/tools.ini" | tr -d '[]'); do
     [[ "$(manifest_get "$t" version)" == system ]] && continue
+    # Ubuntu-only tools (no verifiable download, e.g. ble.sh) must name their package
+    if [[ -z "$(manifest_get "$t" url.x86_64)$(manifest_get "$t" url.aarch64)" ]]; then
+      [[ -n "$(manifest_get "$t" apt)" && -n "$(manifest_get "$t" apt_min)" ]] || t_fail "$t: no url and no apt package"
+      continue
+    fi
     [[ -n "$(manifest_get "$t" url.x86_64)" ]] || t_fail "$t: no x86_64 url"
     [[ -n "$(manifest_get "$t" url.aarch64)" ]] || t_fail "$t: no aarch64 url"
     [[ "$(manifest_get "$t" url.x86_64)" == https://* ]] || t_fail "$t: url must be https"
@@ -214,4 +219,18 @@ test_ubuntu_binary_names_get_friendly_links() {
   journal_begin t; install_tool bat 2>/dev/null; install_tool fd 2>/dev/null; journal_commit
   assert_eq "$(readlink "$HOME/.local/bin/bat")" "$T_FAKE_BIN/batcat"
   assert_eq "$(readlink "$HOME/.local/bin/fd")" "$T_FAKE_BIN/fdfind"
+}
+
+test_theme_palettes_match_the_settings() {
+  # every palette the setting allows exists in the theme with all 16 colours, and back
+  t_load_lib
+  local f="$T_REPO/config/starship/themes/supershell-theme.toml" p allowed
+  allowed="$(_cfg_schema_line theme_colors | cut -d'|' -f2)"
+  for p in $allowed; do
+    assert_eq "$(awk -v h="[palettes.$p]" '$0==h{f=1;next} /^\[/{f=0} f && /^[a-z0-9]+ = "#[0-9A-Fa-f]{6}"$/' "$f" | wc -l)" 16 "palette $p"
+  done
+  for p in $(grep -oE '^\[palettes\.[a-z-]+\]' "$f" | sed 's/\[palettes\.//; s/\]//'); do
+    [[ " $allowed " == *" $p "* ]] || t_fail "palette $p is not selectable"
+  done
+  assert_eq "$(_cfg_schema_line theme_root_colors | cut -d'|' -f2)" "$allowed same"
 }

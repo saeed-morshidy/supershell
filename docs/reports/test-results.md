@@ -25,6 +25,10 @@ passed unless it actually ran.
 | Real start-up time on the target laptop | manual, `supershell bench` | ⏳ not executed |
 | SSH session behaviour | partly automated (icons fall back to plain); real SSH in manual plan A21 | ⏳ manual part not executed |
 
+## Bugs found while adding the root prompt
+
+- `starship init` writes into its script the `starship` it finds on **PATH**, not the binary that is running. Generating root's script with root's own copy therefore still produced `~/.local/bin/starship` (a user-changeable file) on the laptop; the final safety check refused it. Fixed: the script is printed in a clean environment whose PATH starts at root's copy, and every `starship` it runs must be exactly that copy. The fake starship now behaves the same way (PATH lookup), so the test reproduces the laptop failure with the old code. Also: a refused attempt now removes what it created.
+
 ## Bugs found by the first CI run (GitHub Actions, run 42533623944)
 
 - **e2e:** the install runs before `~/.local/bin` is on PATH (fresh server, `su -c`, CI),
