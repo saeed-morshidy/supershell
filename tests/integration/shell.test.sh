@@ -293,6 +293,12 @@ test_real_starship_renders_prompt_without_warnings() {
   ss prompt custom on >/dev/null 2>&1 || t_fail "prompt custom on failed"
   ss prompt cap on >/dev/null 2>&1 || t_fail "prompt cap on failed"
   _check pastel-powerline "custom, cap"
+  # `theme list` shows every palette in its real colours (starship draws them)
+  local list; list="$(cd "$T_TMP/r/مشروع" && ss theme list 2>&1)"
+  assert_contains "$list" '48;2;123;45;142'    # supershell  c1 #7B2D8E
+  assert_contains "$list" '48;2;94;11;21'      # supershell-root c1 #5E0B15
+  assert_contains "$list" '48;2;180;142;173'   # nord        c1 #B48EAD
+  assert_not_contains "$list" '\['                  # no bash prompt markers
 }
 
 test_rendered_prompt_configs_are_valid_toml() {
@@ -466,4 +472,47 @@ test_theme_colours_root_colours_and_reset() {
 test_help_fits_in_80_columns() {
   local long; long="$(NO_COLOR=1 "$T_REPO/supershell" -h | awk 'length($0) > 80')"
   [[ -z "$long" ]] || t_fail "help lines wider than 80 columns: $long"
+}
+
+test_theme_list_and_choosing_colours_without_a_terminal() {
+  t_ubuntu_bashrc; _install core fonts
+  local out
+  out="$(ss theme list 2>&1)" || t_fail "theme list failed"
+  local p; for p in supershell supershell-root pastel tokyo-night catppuccin gruvbox nord dracula rose-pine kanagawa; do
+    assert_contains "$out" "$p"
+  done
+  # one line with the name (and markers), the next with the prompt in its colours
+  assert_eq "$(grep -m1 '^supershell ' <<<"$out")" "supershell  ● yours"
+  assert_eq "$(grep -m1 '^supershell-root' <<<"$out")" "supershell-root  ◆ root shells"
+  grep -qx 'nord' <<<"$out" || t_fail "palette name not on a line of its own"
+  # no name = choose: a numbered menu when there is no terminal (fzf needs one)
+  printf '7\n' | "$T_REPO/supershell" theme colors >/dev/null 2>&1 || t_fail "pick by number failed"
+  assert_eq "$(ss config get theme_colors)" nord
+  printf 'dracula\n' | "$T_REPO/supershell" theme colors >/dev/null 2>&1 || t_fail "pick by name failed"
+  assert_eq "$(ss config get theme_colors)" dracula
+  out="$(printf '\n' | "$T_REPO/supershell" theme colors 2>&1)" || t_fail "cancel failed"
+  assert_contains "$out" "unchanged"; assert_eq "$(ss config get theme_colors)" dracula
+  printf '11\n' | "$T_REPO/supershell" theme root-colors >/dev/null 2>&1 || t_fail "root pick failed"
+  assert_eq "$(ss config get theme_root_colors)" same
+  printf 'no-such\n' | "$T_REPO/supershell" theme colors >/dev/null 2>&1 && t_fail "unknown palette must be refused"
+  assert_eq "$(ss config get theme_colors)" dracula
+  out="$(ss theme preview nord 60 2>&1)" || t_fail "preview failed"
+  assert_contains "$out" "root shells"
+}
+
+test_colour_chooser_opens_fzf_on_a_terminal() {
+  # Found on the laptop: on a real terminal the numbered menu came up instead of fzf
+  # (stdout is captured by $(…), so a "stdout is a terminal" check is always false).
+  command -v script >/dev/null || t_skip "script (util-linux) not available"
+  t_ubuntu_bashrc; _install core fonts
+  : >"$T_TMP/calls"
+  T_FZF_PICK=nord script -qec "'$T_REPO/supershell' theme colors" /dev/null </dev/null >/dev/null 2>&1 \
+    || t_fail "theme colors on a terminal failed"
+  grep -q fzf-picker-ran "$T_TMP/calls" || t_fail "fzf was not used on a terminal"
+  assert_eq "$(ss config get theme_colors)" nord
+  T_FZF_PICK=supershell-root script -qec "'$T_REPO/supershell' theme root-colors" /dev/null </dev/null >/dev/null 2>&1
+  assert_eq "$(ss config get theme_root_colors)" supershell-root
+  # Esc in fzf: nothing changes
+  script -qec "'$T_REPO/supershell' theme colors" /dev/null </dev/null >/dev/null 2>&1
+  assert_eq "$(ss config get theme_colors)" nord
 }

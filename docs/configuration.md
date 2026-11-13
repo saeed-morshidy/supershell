@@ -34,10 +34,14 @@ SUPERSHELL_MODE=classic bash   # classic mode
 ## supershell-theme (the default prompt)
 
 ```bash
-supershell theme                    # current colours + the list
-supershell theme colors nord        # supershell, supershell-root, pastel, tokyo-night,
-                                    # catppuccin, gruvbox, nord, dracula, rose-pine, kanagawa
-supershell theme root-colors same   # root shells: supershell-root (red, the default) or any
+supershell theme                    # current colours
+supershell theme list               # every palette, drawn as your real prompt
+supershell theme colors             # choose while you look (arrows, Enter; Esc cancels)
+supershell theme colors nord        # or by name: supershell, supershell-root, pastel,
+                                    # tokyo-night, catppuccin, gruvbox, nord, dracula,
+                                    # rose-pine, kanagawa
+supershell theme root-colors        # root shells: supershell-root (red, the default),
+                                    # same, or any — also with a live preview
 supershell theme reset              # back to supershell-theme + default colours
 ```
 
@@ -50,6 +54,9 @@ stays the same whatever starship ships. Colours are starship *palettes*: each on
 part to part; switching is one setting. Root shells (`supershell root on`) use
 `theme_root_colors` — red by default, so you see at once that you are root.
 `theme reset` puts back the defaults and sets your `prompt.toml` aside (backed up).
+The previews are drawn by starship itself with your fonts and icons, so they look
+exactly like the prompt you get; the chooser uses fzf (installed with `core`) and
+falls back to a numbered menu when there is no terminal.
 
 ## Customising the prompt
 

@@ -40,7 +40,7 @@ cd supershell
 | `supershell mode modern` | تجربة supershell الكاملة |
 | `supershell devops on/off` | تشغيل أو إيقاف معلومات DevOps في الـ prompt والـ completion |
 | `supershell devops aliases on` | اختصارات مثل `k` و`d` (مُطفأة افتراضيًا، والأفضل أن تتعلم الأوامر كاملة أولًا) |
-| `supershell theme` | ثيم supershell (الافتراضي): `theme colors <name>` لتغيير الألوان (supershell، pastel، nord، dracula…)، و`theme root-colors <name>` لألوان الـ root (الافتراضي أحمر `supershell-root`)، و`theme reset` للرجوع للأصل |
+| `supershell theme` | ثيم supershell (الافتراضي): `theme list` يعرض كل الألوان بشكل الـ prompt الحقيقي، و`theme colors` من غير اسم تختار وأنت شايف، و`theme colors <name>` لتغيير الألوان (supershell، pastel، nord، dracula…)، و`theme root-colors <name>` لألوان الـ root (الافتراضي أحمر `supershell-root`)، و`theme reset` للرجوع للأصل |
 | `supershell prompt [<style>]` | أشكال تانية: `pastel-powerline`، `tokyo-night`، `gruvbox-rainbow`، `catppuccin-mocha`… |
 | `supershell prompt custom on/off` | شكل supershell (بعرض الشاشة وطرفاه مربّعان — الافتراضي) أو شكل starship كما هو؛ و`prompt cap on` يرجّع البداية المدوّرة |
 | `supershell prompt edit` | تعديلاتك أنت على الـ prompt (`~/.config/supershell/prompt.toml`)، وتبقى مع أي شكل وبعد أي تحديث |

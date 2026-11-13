@@ -79,7 +79,7 @@ supershell list                      # what's installed
 | `supershell devops on` / `off` | DevOps info in the prompt + completions |
 | `supershell devops aliases on` | short aliases `k`, `d`, `dc`, `tf` (off by default — learn the full commands first) |
 | `supershell icons auto\|nerd\|plain` | icon style (`auto` uses plain symbols over SSH) |
-| `supershell theme` | supershell-theme (the default prompt): `theme colors <name>` (supershell, pastel, tokyo-night, catppuccin, gruvbox, nord, dracula, rose-pine, kanagawa), `theme root-colors <name>` (default: a red `supershell-root`), `theme reset` |
+| `supershell theme` | supershell-theme (the default prompt): `theme list` shows every palette as your real prompt; `theme colors` lets you choose while you look; `theme colors <name>` (supershell, pastel, tokyo-night, catppuccin, gruvbox, nord, dracula, rose-pine, kanagawa), `theme root-colors <name>` (default: a red `supershell-root`), `theme reset` |
 | `supershell prompt [<style>]` | other styles: `pastel-powerline`, `tokyo-night`, `gruvbox-rainbow`, `catppuccin-mocha` / `-macchiato` / `-frappe` / `-latte`, `simple` |
 | `supershell prompt custom on\|off` | supershell's prompt (full width, square ends — the default) or the starship preset as published; `prompt cap on` = the preset's rounded start |
 | `supershell prompt edit` | your own prompt tweaks (`~/.config/supershell/prompt.toml`), kept across styles and updates |

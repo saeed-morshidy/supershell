@@ -20,6 +20,12 @@ case "$name:$*" in
   zoxide:--version)      echo "zoxide 0.9.8" ;;
   fzf:--bash)            echo 'export SS_STUB_FZF=1' ;;
   fzf:--version)         echo "0.62.0 (stub)" ;;
+  fzf:*--read0*)         # the theme chooser: print the item whose first word is $T_FZF_PICK
+                         [[ -n "${T_FZF_PICK:-}" ]] || exit 130
+                         echo "fzf-picker-ran" >>"$T_TMP/calls"
+                         while IFS= read -r -d '' item; do
+                           [[ "${item%%[ $'\n']*}" == "$T_FZF_PICK" ]] && { printf '%s\n' "$item"; exit 0; }
+                         done; exit 1 ;;
   eza:--version)         echo "eza - v0.21.0" ;;
   eza:*)                 echo "eza $*" ;;
   batcat:--version|bat:--version) echo "bat 0.25.0" ;;
