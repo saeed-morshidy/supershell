@@ -40,6 +40,8 @@ t_sandbox() {
   export SUPERSHELL_OS_RELEASE="$T_TMP/os-release" SUPERSHELL_ARCH=x86_64
   # the fake `ble.sh` package installs here — never the host's /usr/share/blesh
   export SUPERSHELL_BLESH="$T_TMP/usr/share/blesh/ble.sh"
+  # font fitting depends on the host's fonts and screen: a stub, unless a test says so
+  export SUPERSHELL_FONTFIT="$T_STUBS/fontfit.py" SUPERSHELL_DPI=96
   # root prompt: a fake /root, /etc and /usr/local/lib (the sudo stub runs unprivileged)
   export SUPERSHELL_ROOT_HOME="$T_TMP/root" SUPERSHELL_ROOT_ETC="$T_TMP/etc/supershell/root" \
          SUPERSHELL_ROOT_LIB="$T_TMP/usr/local/lib/supershell" SUPERSHELL_ROOT_OWNER=""

@@ -137,7 +137,7 @@ core_render_starship() {
   # starship's nerd-font-symbols preset (theme values win). Two renders: yours, and the
   # one root shells get (`supershell root on`) with the root palette.
   local theme="$dir/themes/supershell-theme.toml" pal variant
-  [[ "$(config_get prompt_cap)" == on ]] && theme="$dir/themes/supershell-theme.cap.toml"
+  [[ "$(config_get theme_ends)" == square ]] && theme="$dir/themes/supershell-theme.square.toml"
   if [[ -f "$theme" ]]; then
     starship preset nerd-font-symbols >"$w/sym" 2>/dev/null || : >"$w/sym"
     for variant in supershell-theme supershell-theme-root; do
@@ -276,6 +276,10 @@ mod_doctor() {
     local what="starship preset"; [[ "$ps" == supershell-theme ]] && what="supershell's own theme, colours: $(config_get theme_colors), root: $(config_get theme_root_colors)"
     [[ -f "$SS_CONFIG_DIR/starship-$ps.toml" ]] && check_ok "prompt style: $ps ($what)" \
       || check_warn "prompt style '$ps' could not be rendered by this starship version — using the simple prompt"
+  fi
+  if [[ "$ps" == supershell-theme && "$(config_get theme_ends)" == rounded ]] && module_is_installed fonts \
+     && [[ "$(module_load fonts; _font_field "$(config_get font)" 5)" != yes ]]; then
+    check_warn "the bar's rounded ends are drawn for Cascadia Code NF; with $(config_get font) a 1px step can show — supershell font cascadia-code (or: supershell theme ends square)"
   fi
   mod_doctor_prompt
   [[ -n "${STARSHIP_CONFIG:-}" && "$STARSHIP_CONFIG" != "$SS_CONFIG_DIR"/* ]] && check_warn "STARSHIP_CONFIG is set to your own file ($STARSHIP_CONFIG) — supershell's prompt is not used"

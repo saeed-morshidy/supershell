@@ -36,12 +36,15 @@ class State:
 
     def reset(self):
         self.fg = self.bg = None
-        self.bold = self.dim = self.italic = self.underline = False
+        self.bold = self.dim = self.italic = self.underline = self.reverse = False
 
     def css(self):
         s = []
-        if self.fg: s.append(f"color:{self.fg}")
-        if self.bg: s.append(f"background:{self.bg}")
+        fg, bg = self.fg, self.bg
+        if self.reverse:   # SGR 7, as a terminal does it: the defaults swap too
+            fg, bg = bg or BG, fg or FG
+        if fg: s.append(f"color:{fg}")
+        if bg: s.append(f"background:{bg}")
         if self.bold: s.append("font-weight:700")
         if self.dim: s.append("opacity:.6")
         if self.italic: s.append("font-style:italic")
@@ -58,6 +61,8 @@ class State:
             elif c == 2: self.dim = True
             elif c == 3: self.italic = True
             elif c == 4: self.underline = True
+            elif c == 7: self.reverse = True
+            elif c == 27: self.reverse = False
             elif c == 22: self.bold = self.dim = False
             elif c == 23: self.italic = False
             elif c == 24: self.underline = False
@@ -121,7 +126,7 @@ def main():
     st = State()
     rows = "\n".join(f'<div class="l">{line_html(l, st)}</div>' for l in text.split("\n"))
     faces = "".join(f"@font-face{{font-family:'{f.split('=',1)[0]}';src:url('file://{f.split('=',1)[1]}')}}\n" for f in args.font)
-    mono = "'SS Mono','SS Icons','SS Arabic','JetBrains Mono','Symbols Nerd Font Mono','DejaVu Sans Mono',monospace"
+    mono = "'SS Mono','SS Ends','SS Icons','SS Arabic','JetBrains Mono','Symbols Nerd Font Mono','DejaVu Sans Mono',monospace"
     page = f"""<!doctype html><html><head><meta charset="utf-8"><style>
 {faces}
 html,body{{margin:0;background:transparent}}

@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     container: ${{ matrix.image }}
     steps:
-      - run: apt-get update -qq && apt-get install -y -qq git tmux ripgrep sudo xz-utils procps ca-certificates
+      - run: apt-get update -qq && apt-get install -y -qq git tmux ripgrep sudo xz-utils procps ca-certificates python3-fonttools
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
       - name: run suite as a normal user
         run: |

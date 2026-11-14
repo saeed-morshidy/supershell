@@ -20,10 +20,11 @@ CHROME="$(command -v google-chrome || command -v chromium || command -v chromium
 
 # fonts, found before HOME moves to the demo home (the page loads them from the files)
 FONTS=()
-for f in "SS Mono=JetBrains Mono" "SS Icons=Symbols Nerd Font Mono" "SS Arabic=DejaVu Sans Mono"; do
+for f in "SS Mono=Cascadia Code NF" "SS Icons=Symbols Nerd Font Mono" "SS Arabic=DejaVu Sans Mono"; do
   file="$(fc-match -f '%{file}' "${f#*=}")"
   [[ -r "$file" ]] && FONTS+=(--font "${f%%=*}=$file")
 done
+FONTS+=(--font "SS Ends=$PWD/config/fonts/SupershellEnds.ttf")   # the bar's rounded ends
 
 # ---- the prompt configs, rendered like supershell does (no user tweaks) -------------
 cfg() {   # <palette> <user name> <out>

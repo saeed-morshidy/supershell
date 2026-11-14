@@ -3,6 +3,6 @@
 # T_FC_ARABIC_PROPORTIONAL=1 simulates the bug the fontconfig rules prevent.
 fam="${1%%:*}"
 case "$fam" in
-  "DejaVu Sans Mono"|"Cascadia Code") echo "$fam" ;;
+  "DejaVu Sans Mono"|"Cascadia Code"|"Cascadia Code NF") echo "$fam" ;;
   *) [[ -n "${T_FC_ARABIC_PROPORTIONAL:-}" ]] && echo "DejaVu Sans" || echo "DejaVu Sans Mono" ;;
 esac

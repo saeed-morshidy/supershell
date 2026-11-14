@@ -293,6 +293,9 @@ test_real_starship_renders_prompt_without_warnings() {
   ss prompt custom on >/dev/null 2>&1 || t_fail "prompt custom on failed"
   ss prompt cap on >/dev/null 2>&1 || t_fail "prompt cap on failed"
   _check pastel-powerline "custom, cap"
+  ss theme ends square >/dev/null 2>&1 || t_fail "theme ends square failed"
+  _check supershell-theme "square ends"
+  ss theme ends rounded >/dev/null 2>&1
   # `theme list` shows every palette in its real colours (starship draws them)
   local list; list="$(cd "$T_TMP/r/مشروع" && ss theme list 2>&1)"
   assert_contains "$list" '48;2;123;45;142'    # supershell  c1 #7B2D8E
@@ -429,15 +432,27 @@ test_supershell_theme_is_the_default_and_ours() {
   t_ubuntu_bashrc; _install core fonts devops
   local f="$HOME/.config/supershell/starship-supershell-theme.toml" r="$HOME/.config/supershell/starship-supershell-theme-root.toml" fmt
   assert_eq "$(ss config get prompt_style)" supershell-theme
-  # supershell's own file: no starship preset in it (palettes are ours), full width, square ends
+  # supershell's own file: no starship preset in it (palettes are ours), full width, rounded ends
   grep -q '^\[palettes\.supershell\]$' "$f" || t_fail "theme palettes missing"
   grep -q '^palette = "supershell"$' "$f" || t_fail "default colours"
   grep -q '^palette = "supershell-root"$' "$r" || t_fail "root colours"
   fmt="$(sed -n '/^format = """/,/"""$/p' "$f")"
   assert_eq "$(LC_ALL=C.UTF-8 grep -oP '\x{E0B0}' <<<"$fmt" | wc -l)" 5 "arrows"
-  assert_eq "$(sed -n 2p <<<"$fmt")" '$os\' "square start"
+  # rounded ends (default): supershell's own drawn ends (Supershell Ends, U+E1F0/E1F1) in
+  # reverse video — bar colour as the cell background — first thing and after the clock
+  LC_ALL=C.UTF-8 grep -qP '^\[\x{E1F0}\]\(fg:c1 inverted\)\\$' <<<"$(sed -n 2p <<<"$fmt")" || t_fail "rounded start"
   grep -q '^\$fill\\$' <<<"$fmt" || t_fail "not full width"
+  LC_ALL=C.UTF-8 grep -qP '^\[\x{E1F1}\]\(fg:c6 inverted\)\\$' <<<"$(grep -A1 '^\$time\\$' <<<"$fmt" | tail -1)" || t_fail "rounded end after the clock"
+  # …and the font that draws them is installed with the fonts module
+  [[ -f "$HOME/.local/share/fonts/supershell/SupershellEnds.ttf" ]] || t_fail "Supershell Ends not installed"
+  if LC_ALL=C.UTF-8 grep -qP '[\x{E0B4}\x{E0B6}]' <<<"$fmt"; then t_fail "old font half-circles still used"; fi
+  # square ends on request: nothing before the user block, nothing after the clock
+  ss theme ends square >/dev/null 2>&1 || t_fail "theme ends square failed"
+  fmt="$(sed -n '/^format = """/,/"""$/p' "$f")"
+  assert_eq "$(sed -n 2p <<<"$fmt")" '$os\' "square start"
   assert_eq "$(grep -A1 '^\$time\\$' <<<"$fmt" | tail -1)" '$line_break\' "square end after the clock"
+  if LC_ALL=C.UTF-8 grep -qP '[\x{E0B4}\x{E0B6}\x{E1F0}\x{E1F1}]' <<<"$fmt"; then t_fail "rounded glyph in the square variant"; fi
+  ss theme ends rounded >/dev/null 2>&1
   # every colour the theme uses is a palette name, never a hex code
   if grep -E '^(style|style_user|style_root|read_only_style) = .*#[0-9A-Fa-f]{6}' "$f"; then t_fail "hard-coded colour"; fi
   # icons from starship's nerd-font-symbols preset; extras on line 2 (devops on)
@@ -459,10 +474,10 @@ test_theme_colours_root_colours_and_reset() {
   assert_eq "$(ss config get prompt_style)" supershell-theme
   # reset: defaults back, your prompt.toml backed up and set aside
   printf '[time]\ndisabled = true\n' >"$HOME/.config/supershell/prompt.toml"
-  ss prompt cap on >/dev/null 2>&1
+  ss prompt cap on >/dev/null 2>&1; ss theme ends square >/dev/null 2>&1
   ss theme reset --yes >/dev/null 2>&1 || t_fail "theme reset failed"
-  assert_eq "$(ss config get prompt_style)|$(ss config get theme_colors)|$(ss config get theme_root_colors)|$(ss config get prompt_cap)" \
-            "supershell-theme|supershell|supershell-root|off"
+  assert_eq "$(ss config get prompt_style)|$(ss config get theme_colors)|$(ss config get theme_root_colors)|$(ss config get theme_ends)|$(ss config get prompt_cap)" \
+            "supershell-theme|supershell|supershell-root|rounded|off"
   assert_no_file "$HOME/.config/supershell/prompt.toml"
   [[ -n "$(find "$HOME/.local/state/supershell/backups" -name prompt.toml)" ]] || t_fail "prompt.toml not backed up"
   grep -q '^palette = "supershell"$' "$f" || t_fail "palette not reset"

@@ -51,17 +51,21 @@ The first install asks two questions — `--yes` takes the defaults:
 | Question | Default | Other choices |
 |---|---|---|
 | **Prompt** | **supershell-theme** — supershell's own (below) | the starship pastel-powerline preset as published (`--default`) |
-| **Terminal font** | DejaVu Sans Mono | Cascadia Code, JetBrains Mono, Fira Code, IBM Plex Mono, Ubuntu Sans Mono (`--font=NAME`) — from Ubuntu's archive, Arabic always fixed-width |
+| **Terminal font** | Cascadia Code NF — Arabic built in, icons at full height; the bar's drawn rounded ends are made for it | DejaVu Sans Mono, JetBrains Mono, Fira Code, IBM Plex Mono, Ubuntu Sans Mono (`--font=NAME`) — all from Ubuntu's archive, Arabic always fixed-width |
 
 **Requirements:** Ubuntu 26.04 LTS (24.04 and 25.10 best-effort), x86_64 or aarch64,
 Bash 5.1+, `sudo` for apt packages (asked once). Run it as your normal user.
 
 ## supershell-theme
 
-supershell's own prompt: a colour bar across the full terminal width, square at both
-ends, git and language info in the middle, the clock at the right — and the command's
+supershell's own prompt: a colour bar across the full terminal width with rounded
+ends (or square: `supershell theme ends square`), git and language info in the middle, the clock at the right — and the command's
 duration, exit status and Kubernetes context on the second line, in front of the `❯`.
 It is a file in this repository, so it stays the same whatever starship ships.
+The rounded ends are drawn by supershell itself (a two-glyph font, `Supershell Ends`):
+the end's cell takes the bar colour as its background and the font only cuts the
+corners in the terminal's own background colour, so the ends meet the bar exactly at
+every font size and zoom, with any palette or terminal colours.
 
 **Ten colour palettes**, each a smooth ramp from part to part — and `ll`, fzf, bat and
 delta follow the palette you pick:
@@ -72,6 +76,7 @@ delta follow the palette you pick:
 supershell theme list           # every palette, drawn as your real prompt
 supershell theme colors         # choose while you look (arrows, Enter; Esc cancels)
 supershell theme colors nord    # or by name
+supershell theme ends square    # straight ends instead of rounded
 supershell theme reset          # back to supershell-theme and its default colours
 ```
 
@@ -239,7 +244,9 @@ Ideas (not code) were learned from [Omakub](https://github.com/basecamp/omakub)
 (a menu-driven setup with update/uninstall) and
 [shell-bling-ubuntu](https://github.com/hiAndrewQuinn/shell-bling-ubuntu) (pinned
 versions, test matrix), and from discussions in the Atuin, ble.sh and Neovim
-communities. Prompt presets and palettes build on [starship](https://starship.rs) and
+communities. The rounded bar's spacing (icon right inside the rounded start, clock before the
+rounded end) follows [typecraft](https://github.com/typecraft-dev/dotfiles)'s starship
+prompt. Prompt presets and palettes build on [starship](https://starship.rs) and
 the Catppuccin, Dracula, Gruvbox, Kanagawa, Nord, Rosé Pine and Tokyo Night colour
 schemes. Thanks to egmont for the BiDi work in VTE that makes Arabic usable in
 Ubuntu's terminal.

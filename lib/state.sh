@@ -15,10 +15,12 @@ SS_CONFIG_SCHEMA=(
   "prompt_style|supershell-theme pastel-powerline tokyo-night gruvbox-rainbow catppuccin-mocha catppuccin-macchiato catppuccin-frappe catppuccin-latte simple|supershell-theme"
   "theme_colors|supershell supershell-root pastel tokyo-night catppuccin gruvbox nord dracula rose-pine kanagawa|supershell"
   "theme_tools|on off|on"
+  "theme_ends|rounded square|rounded"
   "theme_root_colors|supershell supershell-root pastel tokyo-night catppuccin gruvbox nord dracula rose-pine kanagawa same|supershell-root"
   "prompt_custom|on off|on"
   "prompt_cap|on off|off"
-  "font|dejavu-sans-mono cascadia-code jetbrains-mono fira-code ibm-plex-mono ubuntu-sans-mono|dejavu-sans-mono"
+  "font|cascadia-code dejavu-sans-mono jetbrains-mono fira-code ibm-plex-mono ubuntu-sans-mono|cascadia-code"
+  "font_fit|on off|on"
   "font_size|8 9 10 11 12 13 14 16|14"
   "nerd_font_installed|yes no|no"
 )

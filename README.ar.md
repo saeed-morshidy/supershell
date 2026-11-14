@@ -27,8 +27,8 @@ cd supershell
 
 أول تثبيت يسألك سؤالين:
 
-- **شكل الـ prompt** — *supershell-theme* (الافتراضي): ثيم supershell الخاص — شريط ألوان بعرض الـ terminal كله، وطرفاه مربّعان، والساعة على اليمين — أو *starship*: شكل pastel-powerline [كما ينشره starship](https://starship.rs/presets/) بالضبط. الخياران `--custom` و`--default`، وترجع للافتراضي في أي وقت بـ `supershell theme reset`.
-- **خط الـ terminal** — DejaVu Sans Mono (الافتراضي)، أو Cascadia Code، أو JetBrains Mono، أو Fira Code، أو IBM Plex Mono، أو Ubuntu Sans Mono، من أرشيف Ubuntu. الخيار `--font=NAME`، وتقدر تغيّر لاحقًا بـ `supershell font <name>`.
+- **شكل الـ prompt** — *supershell-theme* (الافتراضي): ثيم supershell الخاص — شريط ألوان بعرض الـ terminal كله بطرفين مدوّرين، والساعة على اليمين — أو *starship*: شكل pastel-powerline [كما ينشره starship](https://starship.rs/presets/) بالضبط. الخياران `--custom` و`--default`، وترجع للافتراضي في أي وقت بـ `supershell theme reset`.
+- **خط الـ terminal** — Cascadia Code NF (الافتراضي: فيه العربي والأيقونات، وأطراف الشريط المدوّرة اللي supershell بيرسمها بنفسه متظبطة عليه)، أو DejaVu Sans Mono، أو JetBrains Mono، أو Fira Code، أو IBM Plex Mono، أو Ubuntu Sans Mono، من أرشيف Ubuntu. الخيار `--font=NAME`، وتقدر تغيّر لاحقًا بـ `supershell font <name>`.
 
 و`--yes` تختار الافتراضي في الاثنين.
 
@@ -46,7 +46,7 @@ cd supershell
 | `supershell prompt [<style>]` | أشكال تانية: `pastel-powerline`، `tokyo-night`، `gruvbox-rainbow`، `catppuccin-mocha`… |
 | `supershell prompt custom on/off` | شكل supershell (بعرض الشاشة وطرفاه مربّعان — الافتراضي) أو شكل starship كما هو؛ و`prompt cap on` يرجّع البداية المدوّرة |
 | `supershell prompt edit` | تعديلاتك أنت على الـ prompt (`~/.config/supershell/prompt.toml`)، وتبقى مع أي شكل وبعد أي تحديث |
-| `supershell font [<name>]` | خط الـ terminal (DejaVu Sans Mono، Cascadia Code، JetBrains Mono…)، والعربي دائمًا بعرض ثابت؛ Ptyxis يتحدّث فورًا |
+| `supershell font [<name>]` | خط الـ terminal (Cascadia Code NF، DejaVu Sans Mono، JetBrains Mono…؛ بينبّهك لو الأطراف المدوّرة ممكن يبان فيها بكسل مع الخط دا)، والعربي دائمًا بعرض ثابت؛ Ptyxis يتحدّث فورًا |
 | `supershell root on/off` | نفس شكل الـ prompt وأنت root (`su -` أو `sudo -i`) — نسخ يملكها root، والـ prompt فقط، ويطلب sudo مرة واحدة |
 | `supershell keys` | ملخص الاختصارات |
 | `supershell doctor` | فحص سلامة البيئة |
@@ -83,7 +83,7 @@ cd supershell
 
 ## ثيم supershell
 
-ثيم supershell الخاص: شريط ألوان بعرض الـ terminal كله، وطرفاه مربّعان، والساعة على اليمين، ومدة الأمر وحالته في السطر الثاني. وله عشر مجموعات ألوان، كل واحدة متدرّجة من جزء لجزء:
+ثيم supershell الخاص: شريط ألوان بعرض الـ terminal كله بطرفين مدوّرين (أو مربّعين بـ `supershell theme ends square`)، والساعة على اليمين، ومدة الأمر وحالته في السطر الثاني. وله عشر مجموعات ألوان، كل واحدة متدرّجة من جزء لجزء:
 
 <p align="center"><img src="docs/images/themes.png" alt="الأمر supershell theme list يعرض عشر مجموعات ألوان، كل واحدة كشريط prompt حقيقي" width="900"></p>
 

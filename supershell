@@ -66,6 +66,7 @@ ${_c_bld}Look${_c_rst}
   theme list                 All colour palettes, shown as they look
   theme colors [<name>]      Colours; no name = choose while you look
   theme root-colors [<name>] Colours in root shells (default supershell-root)
+  theme ends rounded|square  Rounded (default) or square ends of the bar
   theme reset                Back to supershell-theme and its default colours
   prompt [<style>]           Other styles: pastel-powerline, tokyo-night…
   prompt edit|apply          Your own tweaks (~/.config/supershell/prompt.toml)
@@ -237,6 +238,7 @@ cmd_install() {
     # the chosen font's package joins the single apt batch below
     ensure_dirs; config_init_defaults
     [[ "$SS_DRY_RUN" == 1 ]] || config_set font "$font_choice"
+    _font_ends_note "$font_choice" >&2
   fi
   if [[ "$SS_DRY_RUN" == 1 ]]; then
     [[ -n "$prompt_choice" ]] && detail "prompt: $([[ $prompt_choice == on ]] && echo "supershell-theme" || echo "starship's pastel-powerline preset as published")"
@@ -286,7 +288,7 @@ _ask_prompt_profile() {
     echo
     info "Prompt settings"
     detail "1) supershell-theme (default) — supershell's own: a full-width colour bar,"
-    detail "   square ends, the clock at the right; colours: supershell theme colors"
+    detail "   rounded ends, the clock at the right; colours: supershell theme colors"
     detail "2) starship — the pastel-powerline preset exactly as starship publishes it"
     detail "Change later: supershell theme reset  ·  supershell prompt <style>"
   } >&2
@@ -298,7 +300,17 @@ _ask_prompt_profile() {
 _fonts_table() { ( module_load fonts; printf '%s\n' "${FONTS_SUPPORTED[@]}" ); }
 
 # First install of the fonts module: which terminal font. --font=NAME answers it;
-# --yes and no terminal = the default (DejaVu Sans Mono). Prints the setting value.
+# --yes and no terminal = the default (Cascadia Code NF). Prints the setting value.
+# The prompt bar's rounded ends are drawn by supershell for Cascadia Code NF's line;
+# with fonts whose line is shaped differently a 1px step can show at some sizes.
+_font_ends_note() {
+  local l; l="$(_fonts_table | grep "^$1|")" || return 0
+  [[ "${l##*|}" == yes ]] && return 0
+  [[ "$(config_get prompt_style)" == supershell-theme && "$(config_get theme_ends)" == rounded ]] || return 0
+  warn "Note: the prompt bar's rounded ends are drawn for Cascadia Code NF; with $(cut -d'|' -f2 <<<"$l") they can show a 1-pixel step at some sizes."
+  detail "exact everywhere: supershell font cascadia-code  ·  or square ends: supershell theme ends square"
+}
+
 _ask_font() {
   local ans names=() l i=1 def
   def="$(config_default font)"
@@ -311,9 +323,9 @@ _ask_font() {
   {
     echo
     info "Terminal font (from Ubuntu's archive; Arabic always shows in fixed-width cells)"
-    while IFS='|' read -r n fam _ ar; do
+    while IFS='|' read -r n fam _ ar ends; do
       names+=("$n")
-      detail "$i) $fam$([[ $ar == yes ]] && echo "  — has Arabic itself" || echo "  — Arabic from DejaVu Sans Mono")$([[ $n == "$def" ]] && echo "  (default)")"
+      detail "$i) $fam$([[ $ar == yes ]] && echo "  — has Arabic itself" || echo "  — Arabic from DejaVu Sans Mono")$([[ $ends == yes ]] || echo "; bar ends may show a 1px step")$([[ $n == "$def" ]] && echo "  (default)")"
       i=$((i + 1))
     done < <(_fonts_table)
     detail "Change later: supershell font <name>"
@@ -326,15 +338,16 @@ cmd_font() {
   ensure_dirs; config_init_defaults
   if [[ $# -eq 0 ]]; then
     echo "font: $(config_get font) ($(config_get font_size) pt)"
-    local n fam ar
-    while IFS='|' read -r n fam _ ar; do
-      detail "$(printf '%-17s %-17s %s' "$n" "$fam" "$([[ $ar == yes ]] && echo "Arabic: built in" || echo "Arabic: DejaVu Sans Mono")")"
+    local n fam ar ends
+    while IFS='|' read -r n fam _ ar ends; do
+      detail "$(printf '%-17s %-17s %-25s %s' "$n" "$fam" "$([[ $ar == yes ]] && echo "Arabic: built in" || echo "Arabic: DejaVu Sans Mono")" "$([[ $ends == yes ]] && echo "bar ends: exact" || echo "bar ends: may step")")"
     done < <(_fonts_table)
     detail "change: supershell font <name>   ·   size: supershell config set font_size <N>"
     return 0
   fi
   config_set font "$1"; _apply_all
   module_is_installed fonts || warn "The fonts module is not installed yet: supershell install fonts"
+  _font_ends_note "$1"
   ok "font: $1 — Ptyxis updates right away; other terminals: set it in their preferences"
 }
 
@@ -634,6 +647,7 @@ cmd_theme() {
       echo "theme: $([[ $style == supershell-theme ]] && echo supershell-theme || echo "$style (not supershell-theme — supershell theme reset)")"
       detail "colors:      $(config_get theme_colors)      (supershell theme colors — choose while you look)"
       detail "root colors: $(config_get theme_root_colors)  (supershell theme root-colors)"
+      detail "ends:        $(config_get theme_ends)  (supershell theme ends rounded|square)"
       detail "all palettes, as they look: supershell theme list"
       [[ -s "$SS_CONFIG_DIR/prompt.toml" ]] && grep -qv '^[[:space:]]*\(#\|$\)' "$SS_CONFIG_DIR/prompt.toml" \
         && detail "your own tweaks are applied on top: ~/.config/supershell/prompt.toml"
@@ -666,13 +680,19 @@ cmd_theme() {
         backup_file "$f" >/dev/null && rm -f -- "$f"
         detail "your prompt.toml was saved in the backups (supershell restore) and set aside"
       fi
-      local k; for k in prompt_style theme_colors theme_root_colors prompt_cap prompt_custom; do
+      local k; for k in prompt_style theme_colors theme_root_colors theme_ends prompt_cap prompt_custom; do
         config_set "$k" "$(config_default "$k")"
       done
       _prompt_apply
       ok "prompt reset: supershell-theme, colours $(config_get theme_colors) — open a new terminal"
       ;;
-    *) die "Usage: supershell theme [list|colors [<name>]|root-colors [<name>]|reset]" ;;
+    ends)
+      [[ -n "${2:-}" ]] || { echo "ends: $(config_get theme_ends)  (supershell theme ends rounded|square)"; return 0; }
+      config_set theme_ends "$2"
+      [[ "$(config_get prompt_style)" == supershell-theme ]] || config_set prompt_style supershell-theme
+      _prompt_apply
+      ok "supershell-theme ends: $2 — takes effect in new terminals" ;;
+    *) die "Usage: supershell theme [list|colors [<name>]|root-colors [<name>]|ends rounded|square|reset]" ;;
   esac
 }
 
