@@ -6,6 +6,8 @@
 
 [English](README.md) · [دعم اللغة العربية](docs/arabic.md) · [لماذا اخترنا هذه الأدوات](docs/technology-selection.md)
 
+<p align="center"><img src="docs/images/hero.png" alt="supershell في الـ terminal: شريط ثيم supershell بعرض الشاشة، وشجرة ملفات بأيقونات، وحالة git، ومدة الأمر في السطر الثاني" width="900"></p>
+
 ## المبادئ
 
 - **Bash يظل Bash.** لا نعيد تعريف `ls` أو `cat` أو `grep` أو `find` أو `cd` أو `vi` أبدًا. الأدوات الجديدة لها أسماء خاصة بها (`ll` و`bat` و`rg` و`z`). والـ scripts و`scp` و`rsync` لا تتأثر، لأن supershell لا يعمل إلا في الـ shell التفاعلية.
@@ -25,7 +27,7 @@ cd supershell
 
 أول تثبيت يسألك سؤالين:
 
-- **شكل الـ prompt** — *supershell* (الافتراضي): شكل pastel-powerline من starship بعرض الـ terminal كله، وطرفاه مربّعان، والساعة على اليمين؛ أو *starship*: الشكل [كما ينشره starship](https://starship.rs/presets/) بالضبط. الخياران `--custom` و`--default`، وتقدر تغيّر لاحقًا بـ `supershell prompt custom on|off`.
+- **شكل الـ prompt** — *supershell-theme* (الافتراضي): ثيم supershell الخاص — شريط ألوان بعرض الـ terminal كله، وطرفاه مربّعان، والساعة على اليمين — أو *starship*: شكل pastel-powerline [كما ينشره starship](https://starship.rs/presets/) بالضبط. الخياران `--custom` و`--default`، وترجع للافتراضي في أي وقت بـ `supershell theme reset`.
 - **خط الـ terminal** — DejaVu Sans Mono (الافتراضي)، أو Cascadia Code، أو JetBrains Mono، أو Fira Code، أو IBM Plex Mono، أو Ubuntu Sans Mono، من أرشيف Ubuntu. الخيار `--font=NAME`، وتقدر تغيّر لاحقًا بـ `supershell font <name>`.
 
 و`--yes` تختار الافتراضي في الاثنين.
@@ -40,21 +42,39 @@ cd supershell
 | `supershell mode modern` | تجربة supershell الكاملة |
 | `supershell devops on/off` | تشغيل أو إيقاف معلومات DevOps في الـ prompt والـ completion |
 | `supershell devops aliases on` | اختصارات مثل `k` و`d` (مُطفأة افتراضيًا، والأفضل أن تتعلم الأوامر كاملة أولًا) |
-| `supershell prompt [<style>]` | شكل الـ prompt: `pastel-powerline` (الافتراضي)، `tokyo-night`، `gruvbox-rainbow`، `catppuccin-mocha`… |
+| `supershell theme` | ثيم supershell (الافتراضي): `theme list` يعرض كل الألوان بشكل الـ prompt الحقيقي، و`theme colors` من غير اسم تختار وأنت شايف، و`theme colors <name>` لتغيير الألوان (supershell، pastel، nord، dracula…)، و`theme root-colors <name>` لألوان الـ root (الافتراضي أحمر `supershell-root`)، و`theme reset` للرجوع للأصل |
+| `supershell prompt [<style>]` | أشكال تانية: `pastel-powerline`، `tokyo-night`، `gruvbox-rainbow`، `catppuccin-mocha`… |
 | `supershell prompt custom on/off` | شكل supershell (بعرض الشاشة وطرفاه مربّعان — الافتراضي) أو شكل starship كما هو؛ و`prompt cap on` يرجّع البداية المدوّرة |
 | `supershell prompt edit` | تعديلاتك أنت على الـ prompt (`~/.config/supershell/prompt.toml`)، وتبقى مع أي شكل وبعد أي تحديث |
 | `supershell font [<name>]` | خط الـ terminal (DejaVu Sans Mono، Cascadia Code، JetBrains Mono…)، والعربي دائمًا بعرض ثابت؛ Ptyxis يتحدّث فورًا |
+| `supershell root on/off` | نفس شكل الـ prompt وأنت root (`su -` أو `sudo -i`) — نسخ يملكها root، والـ prompt فقط، ويطلب sudo مرة واحدة |
 | `supershell keys` | ملخص الاختصارات |
 | `supershell doctor` | فحص سلامة البيئة |
 | `supershell uninstall` | إزالة كل ما أضافه supershell (ملفاتك الشخصية تبقى كما هي) |
 
 ## الوحدات (modules)
 
-الوحدات المُثبَّتة افتراضيًا هي `core` و`git` و`editor` و`fonts` و`devops`. والوحدات الاختيارية هي `lazygit` و`helix` و`plus` و`tmux`.
+الوحدات المُثبَّتة افتراضيًا هي `core` و`git` و`editor` و`fonts` و`devops` و`plus` (اقتراحات وأنت تكتب). والوحدات الاختيارية هي `lazygit` و`helix` و`tmux`.
+
+## ثيم supershell
+
+ثيم supershell الخاص: شريط ألوان بعرض الـ terminal كله، وطرفاه مربّعان، والساعة على اليمين، ومدة الأمر وحالته في السطر الثاني. وله عشر مجموعات ألوان، كل واحدة متدرّجة من جزء لجزء:
+
+<p align="center"><img src="docs/images/themes.png" alt="الأمر supershell theme list يعرض عشر مجموعات ألوان، كل واحدة كشريط prompt حقيقي" width="900"></p>
+
+- `supershell theme list` — كل الألوان بشكل الـ prompt الحقيقي.
+- `supershell theme colors` — تختار وأنت شايف (الأسهم ثم Enter، وEsc للإلغاء).
+- `supershell theme reset` — رجوع للأصل.
+
+**الـ root باللون الأحمر:** الأمر `supershell root on` يعطي `su -` و`sudo -i` نفس الشكل بألوان `supershell-root`، فتعرف دائمًا أنك root. ولا يقرأ الـ root أي ملف يقدر حسابك العادي يعدّله.
+
+<p align="center"><img src="docs/images/root.png" alt="prompt عادي ثم sudo -i: prompt الـ root بالأحمر والبرتقالي" width="900"></p>
 
 ## العربية
 
 تدعم الـ terminal الافتراضية في Ubuntu 26.04 (Ptyxis، المبنية على VTE) عرض النص من اليمين لليسار وتشكيل الحروف. وتضبط supershell خطًا يعرض الحروف العربية متصلة بشكل سليم. يوجد حد معروف: في السطر الذي يخلط العربي والإنجليزي، قد يظهر المؤشر (cursor) في مكان غير متوقع، مع أن النص نفسه صحيح. التفاصيل الكاملة في [docs/arabic.md](docs/arabic.md).
+
+<p align="center"><img src="docs/images/arabic.png" alt="اسم مجلد عربي في الـ prompt، وأسماء ملفات عربية، وملف Markdown فيه عربي وإنجليزي" width="900"></p>
 
 ## المساهمة
 

@@ -188,17 +188,37 @@ test_unknown_module_is_an_error() {
 }
 
 test_unverified_release_aborts_and_rolls_back() {
-  # ble.sh has no pinned hash and no upstream checksum file in the shipped manifest.
-  if grep -A5 '^\[blesh\]' "$T_REPO/manifest/tools.ini" | grep -qE '^sha256.x86_64 = [0-9a-f]{64}'; then
-    t_skip "blesh is pinned now"
+  # Helix has no Ubuntu package, no pinned hash and no upstream checksum file.
+  if grep -A5 '^\[helix\]' "$T_REPO/manifest/tools.ini" | grep -qE '^sha256.x86_64 = [0-9a-f]{64}'; then
+    t_skip "helix is pinned now"
   fi
-  local v; v="$(awk '/^\[blesh\]/{f=1} f&&/^version/{print $3; exit}' "$T_REPO/manifest/tools.ini")"
-  mkdir -p "$T_TMP/b/ble-$v"; echo "# ble" >"$T_TMP/b/ble-$v/ble.sh"
-  tar -cJf "$T_DL/ble-$v.tar.xz" -C "$T_TMP/b" "ble-$v"
-  local out; out="$(ss install plus --yes 2>&1)" && t_fail "must refuse unverified ble.sh"
+  local v; v="$(awk '/^\[helix\]/{f=1} f&&/^version/{print $3; exit}' "$T_REPO/manifest/tools.ini")"
+  mkdir -p "$T_TMP/h/helix-$v-x86_64-linux"; echo "#!/bin/sh" >"$T_TMP/h/helix-$v-x86_64-linux/hx"
+  tar -cJf "$T_DL/helix-$v-x86_64-linux.tar.xz" -C "$T_TMP/h" "helix-$v-x86_64-linux"
+  local out; out="$(ss install helix --yes 2>&1)" && t_fail "must refuse unverified helix"
   assert_contains "$out" "Refusing to install an unverified download"
   assert_no_file "$HOME/.local/state/supershell/journal"
   assert_eq "$(cat "$HOME/.local/state/supershell/modules" 2>/dev/null)" ""
+}
+
+test_suggestions_are_part_of_the_default_install() {
+  # ble.sh (grey suggestions as you type) comes from Ubuntu's package, in the one apt batch
+  t_ubuntu_bashrc
+  ss install --yes >/dev/null 2>&1 || t_fail "install failed"
+  grep -qx plus "$HOME/.local/state/supershell/modules" || t_fail "plus not installed by default"
+  assert_contains "$(grep '^apt-get install' "$T_APT/log")" "ble.sh"
+  assert_eq "$(grep -c '^apt-get install' "$T_APT/log")" 1 "one apt batch"
+  if grep -q 'akinomyoga' "$T_APT/log"; then t_fail "ble.sh must not be downloaded"; fi
+  t_ibash 'echo "$BLE_VERSION/$SS_STUB_BLE_ATTACHED"'; assert_eq "$T_OUT" "0.4-stub/1"
+  assert_contains "$(ss doctor 2>&1)" "ble.sh at"
+}
+
+test_no_unverified_fallback_when_ubuntu_lacks_ble_sh() {
+  sed -i '/^ble.sh /d' "$T_APT/available"   # e.g. an Ubuntu release without the package
+  local out; out="$(ss install plus --yes 2>&1)" && t_fail "must refuse"
+  assert_contains "$out" "needs the Ubuntu package 'ble.sh'"
+  if grep -q '^curl' "$T_APT/log" 2>/dev/null; then t_fail "nothing may be downloaded"; fi
+  assert_no_file "$HOME/.local/state/supershell/journal"
 }
 
 test_ubuntu_packages_installed_in_one_batch() {
@@ -305,4 +325,110 @@ test_font_command_switches_and_installs_the_package() {
   assert_contains "$(cat "$T_TMP/gsettings")" "font-name='JetBrains Mono 11'"
   ss font comic-sans >/dev/null 2>&1 && t_fail "unknown font must be refused"
   return 0
+}
+
+test_installed_tools_are_found_when_local_bin_is_not_on_path() {
+  # Fresh servers / `su -c` / CI: ~/.local/bin is not on PATH yet, but release tools
+  # are linked there. The prompt must still be rendered (found by the e2e job).
+  ss install core --yes >/dev/null 2>&1 || t_fail "install failed"
+  mkdir -p "$HOME/.local/bin"; mv "$T_FAKE_BIN/starship" "$HOME/.local/bin/starship"
+  rm -f "$HOME"/.config/supershell/starship-*.toml
+  local p; p="$(tr ':' '\n' <<<"$PATH" | grep -vx "$HOME/.local/bin" | paste -sd:)"
+  : >"$T_TMP/calls"
+  PATH="$p" "$T_REPO/supershell" prompt apply </dev/null >/dev/null 2>&1 || t_fail "prompt apply failed"
+  # the installed starship (the fake one records its calls) did the rendering — not
+  # nothing, and not some other starship that happens to be in /usr/bin
+  assert_contains "$(cat "$T_TMP/calls")" "starship preset"
+  assert_file "$HOME/.config/supershell/starship-plain.toml"
+  assert_file "$HOME/.config/supershell/starship-pastel-powerline.toml"
+}
+
+test_doctor_never_downloads_editor_plugins() {
+  # Without plugins, starting nvim would make vim.pack download them (found by e2e).
+  ss install editor --yes >/dev/null 2>&1 || t_fail "install failed"
+  rm -rf "$HOME/.local/share/supershell-nvim/site"
+  : >"$T_TMP/calls"
+  local out; out="$(ss doctor 2>&1)"
+  assert_contains "$out" "editor plugins not installed yet"
+  assert_not_contains "$out" "profile error"
+  if grep -q '^nvim --headless +lua' "$T_TMP/calls"; then t_fail "doctor started nvim without plugins"; fi
+}
+
+test_root_prompt_uses_only_root_owned_copies_and_off_restores_bashrc() {
+  t_ubuntu_bashrc
+  ss install core --yes >/dev/null 2>&1 || t_fail "install failed"
+  # like a release install: ~/.local/bin/starship -> a file inside the user's home.
+  # (`starship init` names the path it was CALLED by — the link, not its target.)
+  local opt="$HOME/.local/share/supershell/opt/starship/1.27.0"
+  mkdir -p "$opt" "$HOME/.local/bin"; mv "$T_FAKE_BIN/starship" "$opt/starship"
+  ln -s "$opt/starship" "$HOME/.local/bin/starship"
+  cp "$SUPERSHELL_ROOT_HOME/.bashrc" "$T_TMP/root-bashrc.orig"
+  local out; out="$(ss root on 2>&1)" || t_fail "root on failed: $out"
+  assert_eq "$(grep -c 'supershell root prompt >>>' "$SUPERSHELL_ROOT_HOME/.bashrc")" 1
+  ss root on >/dev/null 2>&1                                 # idempotent
+  assert_eq "$(grep -c 'supershell root prompt >>>' "$SUPERSHELL_ROOT_HOME/.bashrc")" 1
+  # the security rule: nothing root reads lives in (or points into) the user's home
+  local f
+  for f in "$SUPERSHELL_ROOT_ETC"/* "$SUPERSHELL_ROOT_HOME/.bashrc"; do
+    if grep -q -- "$HOME" "$f"; then t_fail "root reads the user's home via ${f##*/}"; fi
+  done
+  assert_file "$SUPERSHELL_ROOT_LIB/starship"                # user-owned starship → copied
+  grep -q -- "$SUPERSHELL_ROOT_LIB/starship" "$SUPERSHELL_ROOT_ETC/starship-init.bash" || t_fail "init does not use root's starship copy"
+  # root gets supershell-theme with the root palette (the default)
+  cmp -s "$HOME/.config/supershell/starship-supershell-theme-root.toml" "$SUPERSHELL_ROOT_ETC/starship.toml" || t_fail "root does not get the theme's root version"
+  grep -q '^palette = "supershell-root"$' "$SUPERSHELL_ROOT_ETC/starship.toml" || t_fail "root palette"
+  # a root shell: prompt from the root-owned config, nothing else of supershell
+  T_OUT="$(HOME="$SUPERSHELL_ROOT_HOME" bash -ic 'echo "$STARSHIP_CONFIG|$(type -t ll || echo no-ll)"' </dev/null 2>/dev/null)"
+  assert_eq "$T_OUT" "$SUPERSHELL_ROOT_ETC/starship.toml|no-ll"
+  T_OUT="$(HOME="$SUPERSHELL_ROOT_HOME" SSH_CONNECTION="1 2 3 4" bash -ic 'echo "$STARSHIP_CONFIG"' </dev/null 2>/dev/null)"
+  assert_eq "$T_OUT" "$SUPERSHELL_ROOT_ETC/starship-plain.toml"
+  # doctor notices when root's copy falls behind the user's prompt
+  assert_contains "$(ss doctor 2>&1)" "root prompt: on, same as yours"
+  ss prompt tokyo-night >/dev/null 2>&1                     # root follows on its own
+  assert_contains "$(ss doctor 2>&1)" "root prompt: on, same as yours"
+  echo "# changed elsewhere" >>"$SUPERSHELL_ROOT_ETC/starship.toml"   # out of date some other way
+  assert_contains "$(ss doctor 2>&1)" "root prompt is older than your current prompt"
+  # off: /root/.bashrc back byte-for-byte, root-owned files gone
+  ss root off >/dev/null 2>&1 || t_fail "root off failed"
+  assert_same_file "$SUPERSHELL_ROOT_HOME/.bashrc" "$T_TMP/root-bashrc.orig"
+  assert_no_file "$SUPERSHELL_ROOT_ETC"
+  assert_no_file "$SUPERSHELL_ROOT_LIB/starship"
+}
+
+test_root_prompt_refuses_custom_modules_and_uninstall_removes_it() {
+  ss install core --yes >/dev/null 2>&1 || t_fail "install failed"
+  # [custom] modules run commands: never copied into a root shell
+  printf '[custom.hello]\ncommand = "echo hi"\nwhen = true\n' >"$HOME/.config/supershell/prompt.toml"
+  ss prompt apply >/dev/null 2>&1
+  local out; out="$(ss root on 2>&1)" && t_fail "root on must refuse [custom]"
+  assert_contains "$out" "[custom] modules"
+  assert_no_file "$SUPERSHELL_ROOT_ETC/init.bash"
+  if grep -q 'supershell root prompt' "$SUPERSHELL_ROOT_HOME/.bashrc"; then t_fail "block added anyway"; fi
+  rm -f "$HOME/.config/supershell/prompt.toml"; ss prompt apply >/dev/null 2>&1
+  ss root on >/dev/null 2>&1 || t_fail "root on failed"
+  ss uninstall --yes >/dev/null 2>&1
+  if grep -q 'supershell root prompt' "$SUPERSHELL_ROOT_HOME/.bashrc"; then t_fail "uninstall left the root block"; fi
+  assert_no_file "$SUPERSHELL_ROOT_ETC"
+}
+
+test_root_prompt_follows_theme_changes() {
+  # Found on the laptop: root kept an old copy after the theme / root colours changed.
+  ss install core --yes >/dev/null 2>&1 || t_fail "install failed"
+  ss root on >/dev/null 2>&1 || t_fail "root on failed"
+  local rc="$SUPERSHELL_ROOT_ETC/starship.toml"
+  grep -q '^palette = "supershell-root"$' "$rc" || t_fail "root starts with the root palette"
+  ss theme root-colors nord >/dev/null 2>&1 || t_fail "root-colors failed"
+  grep -q '^palette = "nord"$' "$rc" || t_fail "root copy not updated by theme root-colors"
+  ss theme root-colors same >/dev/null 2>&1; ss theme colors dracula >/dev/null 2>&1
+  grep -q '^palette = "dracula"$' "$rc" || t_fail "root copy not updated by theme colors (root = same)"
+  ss config set theme_root_colors supershell-root >/dev/null 2>&1
+  grep -q '^palette = "supershell-root"$' "$rc" || t_fail "root copy not updated by config set"
+  ss theme reset --yes >/dev/null 2>&1
+  cmp -s "$HOME/.config/supershell/starship-supershell-theme-root.toml" "$rc" || t_fail "root copy not updated by reset"
+  assert_contains "$(ss doctor 2>&1)" "root prompt: on, same as yours"
+  # root off: nothing follows any more, and nothing asks for sudo
+  ss root off >/dev/null 2>&1; : >"$T_APT/log"
+  ss theme colors nord >/dev/null 2>&1
+  if grep -q '^sudo' "$T_APT/log"; then t_fail "sudo used while the root prompt is off"; fi
+  assert_no_file "$rc"
 }

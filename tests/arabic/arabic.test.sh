@@ -14,7 +14,14 @@ _tmux_start() {
   T_SOCK="ss-ar-$$"
   tmux -L "$T_SOCK" -f /dev/null -u new-session -d -x 160 -y 20 -c "$HOME" \
     "env -i HOME='$HOME' PATH='$PATH' LANG=C.UTF-8 LC_ALL=C.UTF-8 TERM=xterm-256color T_TMP='$T_TMP' bash -i"
-  sleep 0.6
+  # Wait for the prompt instead of a fixed delay: keys sent before readline is ready
+  # (a slow start-up on a busy machine) lose their escape sequences — a flaky test.
+  local i
+  for ((i = 0; i < 100; i++)); do
+    [[ "$(tmux -L "$T_SOCK" capture-pane -p 2>/dev/null)" == *"[ss-prompt]"* ]] && return 0
+    sleep 0.1
+  done
+  t_fail "the interactive shell did not show its prompt within 10 s"
 }
 _tmux_keys() { tmux -L "$T_SOCK" send-keys "$@"; sleep 0.4; }
 _tmux_screen() { tmux -L "$T_SOCK" capture-pane -p -J; }
@@ -43,7 +50,9 @@ test_cursor_movement_and_editing_in_mixed_line() {
   _tmux_keys -l 'echo "abc سلام xyz"'
   _tmux_keys Left Left Left Left Left Left      # " z y x space م
   _tmux_keys -l '*'
-  _tmux_keys Home; _tmux_keys Right Right Right Right Right Right Right Right Right Right Right  # after: echo "abc س
+  # C-a, not Home: Home's escape code depends on the terminal type and /etc/inputrc
+  # (ubuntu:24.04 containers don't map it), while C-a is readline's own key.
+  _tmux_keys C-a; _tmux_keys Right Right Right Right Right Right Right Right Right Right Right  # after: echo "abc س
   _tmux_keys -l '+'
   _tmux_keys Enter
   local screen; screen="$(_tmux_screen)"; _tmux_stop

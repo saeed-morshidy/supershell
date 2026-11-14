@@ -1,8 +1,8 @@
 # shellcheck shell=bash
 # plus — fish-like editing for Bash: syntax colours, grey suggestions (ble.sh)
 # and searchable history with context (Atuin, local only).
-MOD_DESC="Syntax colours + suggestions (ble.sh), history search (Atuin, local) — adds ~100ms start-up"
-MOD_DEFAULT=no
+MOD_DESC="Suggestions as you type + syntax colours (ble.sh), history search (Atuin, local) — adds ~100 ms start-up"
+MOD_DEFAULT=yes
 MOD_TOOLS="blesh atuin"
 MOD_DEPS="core"
 
@@ -29,7 +29,8 @@ mod_remove() {
 }
 
 mod_doctor() {
-  local f; f="$(compgen -G "$SS_OPT/blesh/*/ble.sh" | tail -1)"
+  local f; f="$(compgen -G "$SS_OPT/blesh/*/ble.sh" | tail -1 || true)"   # no match is normal (Ubuntu package)
+  [[ -z "$f" && -r "${SUPERSHELL_BLESH:-/usr/share/blesh/ble.sh}" ]] && f="${SUPERSHELL_BLESH:-/usr/share/blesh/ble.sh}"
   [[ -n "$f" ]] && check_ok "ble.sh at ${f/#$HOME/\~}" || check_fail "ble.sh not found"
   have atuin && check_ok "atuin $(atuin --version 2>/dev/null | awk '{print $2}')" || check_fail "atuin not found"
   if have atuin; then

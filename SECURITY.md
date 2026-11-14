@@ -19,6 +19,11 @@ within 7 days. Fixes go through the normal 3-approval review in a private fork.
 - No telemetry. Atuin sync and update checks are switched off. No shell start-up
   network traffic.
 - User files are backed up before every change; failed runs roll back.
+- Root shells (`supershell root on`) never read or run a file a normal user can change:
+  the prompt is copied once, with sudo, into root-owned `/etc/supershell/root` (and
+  `/usr/local/lib/supershell/starship` when needed); starship `[custom]` modules, which
+  run commands, are refused; the prompt script is refused unless every `starship` it runs
+  is root's own copy (starship writes in whichever `starship` it finds on PATH).
 
 See [docs/reports/security-dependencies.md](docs/reports/security-dependencies.md)
 for the dependency list and the current state of pinning.

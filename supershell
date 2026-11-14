@@ -21,6 +21,8 @@ SS_VERSION="$(cat "$SS_ROOT/VERSION" 2>/dev/null || echo dev)"
 . "$SS_ROOT/lib/tools.sh"
 # shellcheck source=lib/modules.sh
 . "$SS_ROOT/lib/modules.sh"
+# shellcheck source=lib/rootprompt.sh
+. "$SS_ROOT/lib/rootprompt.sh"
 
 SS_FORCE=0 SS_ALLOW_ROOT=0 SS_PURGE_PACKAGES=0 SS_PURGE=0
 
@@ -44,6 +46,7 @@ trap 'exit 143' TERM
 trap '[[ $? -ne 0 && $BASHPID -eq $$ ]] && journal_mine && { trap - EXIT; journal_rollback || true; }' EXIT
 
 usage() {
+  # every line fits in 80 columns (tests check it)
   cat <<EOF
 ${_c_bld}supershell${_c_rst} $SS_VERSION — a modern, careful Bash environment for Ubuntu
 
@@ -51,36 +54,46 @@ ${_c_bld}Usage${_c_rst}
   supershell <command> [options]
 
 ${_c_bld}Setup${_c_rst}
-  list                      Show modules and what is installed
-  install [module…]         Install the default modules, or the ones named
-  update                    Update supershell itself and the managed tools
-  remove <module…>          Remove modules
-  uninstall [--purge-packages] [--purge]
-                            Remove everything supershell added
+  list                       Show modules and what is installed
+  install [module…]          Install the default modules, or the ones named
+  update                     Update supershell itself and the managed tools
+  remove <module…>           Remove modules
+  uninstall                  Remove everything supershell added
+                             (--purge-packages, --purge)
+
+${_c_bld}Look${_c_rst}
+  theme                      supershell-theme: show colours and options
+  theme list                 All colour palettes, shown as they look
+  theme colors [<name>]      Colours; no name = choose while you look
+  theme root-colors [<name>] Colours in root shells (default supershell-root)
+  theme reset                Back to supershell-theme and its default colours
+  prompt [<style>]           Other styles: pastel-powerline, tokyo-night…
+  prompt edit|apply          Your own tweaks (~/.config/supershell/prompt.toml)
+  root [on|off]              Same prompt in root shells (sudo -i, su -)
+  font [<name>]              Terminal font (DejaVu Sans Mono, Cascadia Code…)
+  icons [auto|nerd|plain]    Icon style
 
 ${_c_bld}Everyday${_c_rst}
-  mode [modern|classic]     classic = plain Ubuntu Bash, e.g. while following a tutorial
-  devops [on|off]           DevOps prompt info + completions (kubectl, docker, helm…)
-  devops aliases [on|off]   Short aliases (k, d, dc, tf) — off by default
-  icons [auto|nerd|plain]   Icon style
-  font [<name>]             Terminal font (DejaVu Sans Mono, Cascadia Code, JetBrains Mono…)
-  prompt [<style>|edit|apply|custom on|off|cap on|off]
-                            Prompt style (pastel-powerline, tokyo-night, catppuccin-…),
-                            supershell's ready-made tweaks, and your own
-  keys                      Keyboard shortcuts and commands cheat sheet
-  config list|get|set       Show or change settings
+  mode [modern|classic]      classic = plain Ubuntu Bash (e.g. for a tutorial)
+  devops [on|off]            DevOps prompt info + completions (kubectl, helm…)
+  devops aliases [on|off]    Short aliases (k, d, dc, tf) — off by default
+  keys                       Keyboard shortcuts and commands cheat sheet
+  config list|get|set        Show or change settings
 
 ${_c_bld}Health & recovery${_c_rst}
-  doctor                    Check that everything is healthy
-  bench                     Measure shell start-up time and memory
-  restore [--list|<id>]     Put back files from a backup
-  repair                    Roll back an interrupted run
+  doctor                     Check that everything is healthy
+  bench                      Measure shell start-up time and memory
+  restore [--list|<id>]      Put back files from a backup
+  repair                     Roll back an interrupted run
 
 ${_c_bld}Options${_c_rst}
-  -y, --yes       Answer yes to confirmations     -n, --dry-run   Show what would happen
-      --force     Allow unsupported systems           --allow-root    Allow running as root
-      --custom    supershell's prompt (the default)   --default       the starship preset as published
-      --font=NAME Terminal font on the first install (see: supershell font)
+  -y, --yes                  Answer yes to confirmations
+  -n, --dry-run              Show what would happen, change nothing
+      --custom               First install: supershell-theme (the default)
+      --default              First install: starship's pastel-powerline preset
+      --font=NAME            First install: terminal font (see: supershell font)
+      --force                Allow unsupported systems
+      --allow-root           Allow running as root
 
 Modules: $(modules_all | paste -sd' ' -)
 EOF
@@ -226,12 +239,16 @@ cmd_install() {
     [[ "$SS_DRY_RUN" == 1 ]] || config_set font "$font_choice"
   fi
   if [[ "$SS_DRY_RUN" == 1 ]]; then
-    [[ -n "$prompt_choice" ]] && detail "prompt settings: $([[ $prompt_choice == on ]] && echo "supershell (full width)" || echo "starship preset as published")"
+    [[ -n "$prompt_choice" ]] && detail "prompt: $([[ $prompt_choice == on ]] && echo "supershell-theme" || echo "starship's pastel-powerline preset as published")"
     [[ -n "$font_choice" ]] && detail "terminal font: $font_choice"
     _plan "${mods[@]}"; return 0
   fi
   confirm "Continue?" y || { info "Nothing changed."; return 0; }
-  [[ -n "$prompt_choice" ]] && { ensure_dirs; config_init_defaults; config_set prompt_custom "$prompt_choice"; }
+  if [[ -n "$prompt_choice" ]]; then
+    ensure_dirs; config_init_defaults
+    if [[ "$prompt_choice" == on ]]; then config_set prompt_style supershell-theme
+    else config_set prompt_style pastel-powerline; config_set prompt_custom off; fi
+  fi
 
   _record_baseline || true
   journal_begin install "${mods[*]}"
@@ -268,10 +285,10 @@ _ask_prompt_profile() {
   {
     echo
     info "Prompt settings"
-    detail "1) supershell (default) — the pastel-powerline style across the full terminal"
-    detail "   width, square at both ends, the clock at the right"
+    detail "1) supershell-theme (default) — supershell's own: a full-width colour bar,"
+    detail "   square ends, the clock at the right; colours: supershell theme colors"
     detail "2) starship — the pastel-powerline preset exactly as starship publishes it"
-    detail "Change later: supershell prompt custom on|off"
+    detail "Change later: supershell theme reset  ·  supershell prompt <style>"
   } >&2
   read -r -p "  ? Choose 1 or 2 [1] " ans || ans=""
   case "$ans" in 2|s|starship|d|default) echo off ;; *) echo on ;; esac
@@ -359,6 +376,7 @@ cmd_uninstall() {
     module_mark_removed "$m"
   done
   bashrc_remove_block
+  if root_prompt_on; then info "Removing the root prompt (sudo)"; _root_off || warn "could not remove the root prompt — run: supershell root off"; fi
   local pkgs; pkgs="$(apt_recorded | paste -sd' ' -)"
   if [[ -n "$pkgs" ]]; then
     info "supershell installed these Ubuntu packages: $pkgs"
@@ -500,6 +518,162 @@ $(sed 's/^/   /' "$e")
   elif [[ -s "$f" ]]; then
     ok "Your prompt changes are applied — open a new terminal to see them"
   fi
+  _root_follow
+}
+
+# Root shells get copies (see lib/rootprompt.sh). When the prompt changes and root's
+# copy is on but now out of date, update it right away — the user asked for a change,
+# so asking for sudo here is expected. If that fails, say how to do it later.
+_root_follow() {
+  root_prompt_on || return 0
+  _root_fresh && return 0
+  [[ "$SS_DRY_RUN" == 1 ]] && { detail "dry-run: root's copy would be updated (sudo)"; return 0; }
+  info "Updating the prompt in root shells too (sudo)"
+  if ! ( _root_on ); then
+    warn "root shells still have the old prompt — run: supershell root on"
+  fi
+  return 0
+}
+
+# ---- palette previews: the real prompt, drawn by starship ----------------------------
+_term_cols() { local c; c="$(tput cols 2>/dev/null || true)"; [[ "$c" =~ ^[0-9]+$ ]] || c=80; echo "$c"; }
+
+# One prompt line exactly as starship draws it with palette $1, at width $2.
+# $3 = root: root's version (root palette file, user name "root").
+_theme_preview() {
+  local pal="$1" width="$2" src="$SS_CONFIG_DIR/starship-supershell-theme.toml" t user=""
+  [[ "${3:-}" == root ]] && { src="$SS_CONFIG_DIR/starship-supershell-theme-root.toml"; user=root; }
+  [[ "$pal" == same ]] && pal="$(config_get theme_colors)"
+  [[ -f "$src" ]] && have starship || return 0
+  t="$(mktemp "$SS_CACHE/preview.XXXXXX")"
+  sed "s/^palette = .*/palette = \"$pal\"/" "$src" >"$t"
+  # starship takes the user name from the system: show root's preview as "root"
+  [[ "$user" == root ]] && sed -i '/^\[username\]/,/^\[/ s/\$user/root/' "$t"
+  # STARSHIP_SHELL unset: plain colour codes, without bash's \[ \] prompt markers
+  (cd "${PWD:-$HOME}" && env -u STARSHIP_SHELL STARSHIP_CONFIG="$t" STARSHIP_LOG=error \
+     starship prompt --terminal-width "$width" --status 0 --cmd-duration 0 --jobs 0 2>/dev/null) \
+    | grep -m1 . || true
+  rm -f -- "$t"
+}
+
+# `theme list`: every palette with its real preview; ● = yours, ◆ = root shells.
+_theme_list() {
+  # each palette: its name on one line, the prompt in its colours on the next
+  local cols name note mine root pals
+  pals="$(_cfg_schema_line theme_colors | cut -d'|' -f2)"
+  mine="$(config_get theme_colors)"; root="$(config_get theme_root_colors)"
+  [[ "$root" == same ]] && root="$mine"
+  cols="$(_term_cols)"
+  for name in $pals; do
+    note=""
+    [[ "$name" == "$mine" ]] && note+="  ● yours"
+    [[ "$name" == "$root" ]] && note+="  ◆ root shells"
+    printf '%s%s%s\n' "${_c_bld}" "$name" "${_c_rst}${note}"
+    _theme_preview "$name" "$cols" "$([[ $name == supershell-root ]] && echo root)"
+    echo
+  done
+  detail "choose while you look: supershell theme colors  ·  root: supershell theme root-colors"
+}
+
+# Choose a palette while seeing it. fzf (from the core module) on a terminal:
+# arrows move, the preview shows yours and root's at full width, Enter picks, Esc
+# cancels. Otherwise a numbered menu. Prints the chosen name; returns 3 when
+# nothing was chosen (cancel), dies on an unknown name.
+_theme_pick() {   # <mine|root>
+  local which="$1" pals cur names=() lines=() name i=1 idx=1 cols w ans
+  pals="$(_cfg_schema_line theme_colors | cut -d'|' -f2)"
+  [[ "$which" == root ]] && pals+=" same"
+  cur="$(config_get "$([[ $which == root ]] && echo theme_root_colors || echo theme_colors)")"
+  read -r -a names <<<"$pals"
+  # stdout is captured by $(…) here: test stdin + stderr; fzf draws on /dev/tty itself
+  if [[ -t 0 && -t 2 ]] && have fzf && have starship; then
+    # two lines per palette (name, then the prompt in its colours): NUL-separated
+    # items that fzf shows on several lines; the picked item's first word is the name
+    cols="$(_term_cols)"; w=$((cols - 4)); ((w < 40)) && w=40
+    for name in "${names[@]}"; do
+      [[ "$name" == "$cur" ]] && idx=$i
+      lines+=("$name$([[ $name == "$cur" ]] && echo "  ● current")"$'\n'"$(_theme_preview "$name" "$w" "$([[ $which == root ]] && echo root)")")
+      i=$((i + 1))
+    done
+    ans="$(printf '%s\0' "${lines[@]}" | fzf --read0 --ansi --no-sort --layout=reverse --height=~80% \
+            --gap --highlight-line --bind "load:pos($idx)" --info=hidden \
+            --header "$([[ $which == root ]] && echo "Colours in root shells" || echo "Your colours") — arrows: look · Enter: use · Esc: cancel")" || return 3
+    ans="${ans%%$'\n'*}"; echo "${ans%% *}"; return 0
+  fi
+  {   # numbered menu — still with the colours when there is a terminal
+    i=1; cols="$(_term_cols)"
+    for name in "${names[@]}"; do
+      printf '  %2d) %s%s\n' "$i" "$name" "$([[ $name == "$cur" ]] && echo "  ● current")"
+      if [[ -t 2 ]] && have starship; then
+        _theme_preview "$name" "$((cols - 6))" "$([[ $which == root ]] && echo root)" | sed 's/^/      /'
+        echo
+      fi
+      i=$((i + 1))
+    done
+  } >&2
+  read -r -p "  ? Number or name [keep $cur] " ans || ans=""
+  [[ -z "$ans" ]] && return 3
+  if [[ "$ans" =~ ^[0-9]+$ ]] && ((ans >= 1 && ans <= ${#names[@]})); then echo "${names[ans-1]}"; return 0; fi
+  for name in "${names[@]}"; do [[ "$name" == "$ans" ]] && { echo "$name"; return 0; }; done
+  die "Unknown palette '$ans' ($pals)"
+}
+
+# supershell-theme: supershell's own prompt theme and its colour palettes.
+cmd_theme() {
+  ensure_dirs; config_init_defaults
+  local pals; pals="$(_cfg_schema_line theme_colors | cut -d'|' -f2)"
+  case "${1:-}" in
+    list) _theme_list; return 0 ;;
+    preview)   # used by the picker: yours and root's, at the given width
+      local w="${3:-$(_term_cols)}"
+      echo " yours"; _theme_preview "${2:?palette}" "$w"
+      echo " root shells"; _theme_preview "$2" "$w" root
+      return 0 ;;
+    "")
+      local style; style="$(config_get prompt_style)"
+      echo "theme: $([[ $style == supershell-theme ]] && echo supershell-theme || echo "$style (not supershell-theme — supershell theme reset)")"
+      detail "colors:      $(config_get theme_colors)      (supershell theme colors — choose while you look)"
+      detail "root colors: $(config_get theme_root_colors)  (supershell theme root-colors)"
+      detail "all palettes, as they look: supershell theme list"
+      [[ -s "$SS_CONFIG_DIR/prompt.toml" ]] && grep -qv '^[[:space:]]*\(#\|$\)' "$SS_CONFIG_DIR/prompt.toml" \
+        && detail "your own tweaks are applied on top: ~/.config/supershell/prompt.toml"
+      return 0 ;;
+    colors|colours|pick)
+      if [[ -z "${2:-}" ]]; then
+        local pick rc=0; pick="$(_theme_pick mine)" || rc=$?
+        ((rc == 3)) && { info "Colours unchanged."; return 0; }
+        ((rc == 0)) || exit "$rc"
+        set -- colors "$pick"
+      fi
+      config_set theme_colors "$2"
+      [[ "$(config_get prompt_style)" == supershell-theme ]] || config_set prompt_style supershell-theme
+      _prompt_apply
+      ok "supershell-theme colours: $2 — takes effect in new terminals" ;;
+    root-colors|root-colours)
+      if [[ -z "${2:-}" ]]; then
+        local pick rc=0; pick="$(_theme_pick root)" || rc=$?
+        ((rc == 3)) && { info "Root colours unchanged."; return 0; }
+        ((rc == 0)) || exit "$rc"
+        set -- root-colors "$pick"
+      fi
+      config_set theme_root_colors "$2"; _prompt_apply
+      ok "root shell colours: $2"
+      ;;
+    reset)
+      confirm "Reset the prompt to supershell-theme with its default colours? (your prompt.toml is backed up and set aside)" y || return 0
+      local f="$SS_CONFIG_DIR/prompt.toml"
+      if [[ -e "$f" ]]; then
+        backup_file "$f" >/dev/null && rm -f -- "$f"
+        detail "your prompt.toml was saved in the backups (supershell restore) and set aside"
+      fi
+      local k; for k in prompt_style theme_colors theme_root_colors prompt_cap prompt_custom; do
+        config_set "$k" "$(config_default "$k")"
+      done
+      _prompt_apply
+      ok "prompt reset: supershell-theme, colours $(config_get theme_colors) — open a new terminal"
+      ;;
+    *) die "Usage: supershell theme [list|colors [<name>]|root-colors [<name>]|reset]" ;;
+  esac
 }
 
 cmd_config() {
@@ -508,7 +682,8 @@ cmd_config() {
     list) local line; for line in "${SS_CONFIG_SCHEMA[@]}"; do
             printf '%-20s %-8s (%s)\n' "${line%%|*}" "$(config_get "${line%%|*}")" "$(cut -d'|' -f2 <<<"$line")"; done ;;
     get) config_get "${2:?key}" ;;
-    set) config_set "${2:?key}" "${3:?value}"; _apply_all; ok "${2} = ${3}" ;;
+    set) config_set "${2:?key}" "${3:?value}"; _apply_all; ok "${2} = ${3}"
+         case "$2" in prompt_*|theme_*|icons|devops) _root_follow ;; esac ;;
     *) die "Usage: supershell config list|get <key>|set <key> <value>" ;;
   esac
 }
@@ -547,12 +722,13 @@ cmd_doctor() {
     else check_warn "VTE $VTE_VERSION is older than 0.58 — no BiDi support"; fi
   elif [[ -n "${SSH_CONNECTION:-}" ]]; then check_ok "SSH session — Arabic display depends on your local terminal"
   else check_warn "Not a VTE terminal (Ptyxis / GNOME Terminal). Arabic RTL display may be wrong here. See docs/arabic.md"; fi
-  case ":$PATH:" in *":$SS_BIN:"*) check_ok "~/.local/bin is on PATH";; *) check_warn "~/.local/bin is not on PATH in this shell (new terminals fix this)";; esac
+  case ":$SS_USER_PATH:" in *":$SS_BIN:"*) check_ok "~/.local/bin is on PATH";; *) check_warn "~/.local/bin is not on PATH in this shell (new terminals fix this)";; esac
 
   echo "${_c_bld}Shell integration${_c_rst}"
   local n; n="$(bashrc_block_count)"
   case $n in 1) check_ok "~/.bashrc has the supershell block";; 0) check_fail "~/.bashrc has no supershell block — run: supershell install";; *) check_fail "~/.bashrc has $n supershell blocks (expected 1)";; esac
   [[ -r "$SS_APP/shell/init.bash" ]] && check_ok "installed copy at ${SS_APP/#$HOME/\~}" || check_fail "missing ${SS_APP/#$HOME/\~}/shell/init.bash"
+  root_doctor
   local dups; dups="$(bashrc_duplicate_inits)"
   if [[ -n "$dups" ]]; then check_warn "your ~/.bashrc also initialises tools supershell manages (may load twice):"; detail "$dups"
   else check_ok "no duplicate tool initialisation"; fi
@@ -671,6 +847,8 @@ main() {
     icons) cmd_icons "$@" ;;
     prompt) cmd_prompt "$@" ;;
     font) cmd_font "$@" ;;
+    theme) cmd_theme "$@" ;;
+    root) cmd_root "$@" ;;
     config) cmd_config "$@" ;;
     restore) cmd_restore "$@" ;;
     repair) cmd_repair ;;

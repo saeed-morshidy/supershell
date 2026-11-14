@@ -24,7 +24,7 @@ esac
 
 # ---- settings (plain key=value, read without forking) ------------------------------
 declare -gA __ss_cfg=([mode]=modern [icons]=auto [devops]=on [devops_aliases]=off
-  [plus_ble]=on [plus_atuin]=on [set_editor]=on [nerd_font_installed]=no [prompt_style]=pastel-powerline)
+  [plus_ble]=on [plus_atuin]=on [set_editor]=on [nerd_font_installed]=no [prompt_style]=supershell-theme)
 if [[ -r "$__ss_cfgdir/config" ]]; then
   while IFS='=' read -r __ss_k __ss_v; do
     [[ -z "$__ss_k" || "$__ss_k" == \#* ]] && continue

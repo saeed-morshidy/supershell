@@ -226,6 +226,11 @@ install_tool() {
       ok "$tool $cand (apt)"
       return 0
     fi
+    if [[ -z "$(manifest_get "$tool" "url.$OS_ARCH")" ]]; then
+      die "$tool needs the Ubuntu package '$pkg' (>= $min), and this system's apt has ${cand:-no such package}.
+   There is no verifiable download for $tool, so supershell will not fetch one.
+   Remove the module that needs it, or use an Ubuntu release that ships '$pkg'."
+    fi
     detail "$tool: apt has ${cand:-no package} (need >= ${min:-any}) — using the pinned release"
   fi
   install_release "$tool"
