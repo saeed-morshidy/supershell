@@ -127,6 +127,63 @@ supershell remove helix              # remove one
 supershell list                      # what's installed
 ```
 
+### How to use each module
+
+**`core`** — the prompt, plus faster ways to find and look at things. The originals
+(`ls`, `cat`, `grep`, `find`) stay exactly as they are; the new tools have their own names.
+
+| Type | What it does |
+|---|---|
+| `ll` · `la` · `lt` | list with git status and icons · including hidden files · as a tree (eza) |
+| `bat file.py` | `cat` with syntax colours and line numbers |
+| `rg "text"` | search file contents, fast (respects `.gitignore`) |
+| `fd name` | find files by name |
+| `z proj` · `zi` | jump to a folder you have visited · pick one from a list (zoxide) |
+| `Ctrl-R` | search your command history |
+| `Ctrl-T` | insert a file path, with a preview |
+| `Alt-C` | jump into a sub-folder |
+| `vim **<Tab>` / `cd **<Tab>` | fuzzy completion for any command |
+
+**`git`** — `git diff`, `git show` and `git log -p` become readable side by side with
+syntax colours (delta). In the diff, `n` / `N` jump to the next / previous file.
+
+**`editor`** — `nvim` (Neovim 0.12; `snvim` if you keep your own `~/.config/nvim`).
+Everything from `vi` works; the leader key is **Space** — press it and wait for a menu.
+
+| Keys | What it does |
+|---|---|
+| `Space f` · `Space /` | find a file · search text in the project |
+| `Space e` | file browser |
+| `Space w` | save |
+| `gd` · `gr` · `K` | go to definition · references · documentation |
+| `Space ca` · `Space cr` · `Space cf` | code action · rename · format |
+| `]d` `[d` · `]h` `[h` | next / previous problem · git change |
+
+Language servers: `:SupershellLspInstall` once. More: [docs/editor.md](docs/editor.md).
+
+**`fonts`** — `supershell font` lists the fonts, `supershell font cascadia-code` switches
+(Ptyxis updates at once); `supershell config set font_size 14`.
+
+**`devops`** — the prompt's second line shows the Kubernetes context (and namespace)
+before you run anything; Docker context and Terraform workspace appear where they apply.
+Tab completion is ready for `kubectl`, `helm`, `docker`, `terraform`, `gh`… (only the
+ones installed). Short aliases are off until you ask: `supershell devops aliases on` →
+`k` = kubectl, `d` = docker, `dc` = docker compose, `tf` = terraform.
+
+**`plus`** — grey suggestions while you type, from your history: `→` (or `Ctrl-F`)
+accepts it, keep typing to ignore it; commands are coloured as you type (red =
+not found). `Ctrl-R` opens Atuin: history with folder and exit code, kept on your
+machine (sync off); `Enter` puts the command on the line, `Enter` again runs it.
+`↑` stays plain Bash history.
+
+**`lazygit`** — `lg`: a full-screen Git UI (stage with `Space`, commit with `c`,
+push with `P`, `?` for every key).
+
+**`helix`** — `hx file`: a modal editor that needs no setup; `hx --tutor` once.
+
+**`tmux`** — `tmux` (never started for you). The prefix is `Ctrl-B`, then `|` / `-`
+split the window, `c` opens a window, `r` reloads the config.
+
 ## Commands
 
 | Command | |
