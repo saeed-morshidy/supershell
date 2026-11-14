@@ -51,19 +51,28 @@ The first install asks two questions — `--yes` takes the defaults:
 | Question | Default | Other choices |
 |---|---|---|
 | **Prompt** | **supershell-theme** — supershell's own (below) | the starship pastel-powerline preset as published (`--default`) |
-| **Terminal font** | DejaVu Sans Mono | Cascadia Code, JetBrains Mono, Fira Code, IBM Plex Mono, Ubuntu Sans Mono (`--font=NAME`) — from Ubuntu's archive, Arabic always fixed-width |
+| **Terminal font** | Cascadia Code NF — Arabic built in, icons at full height; the bar's drawn rounded ends are made for it | DejaVu Sans Mono, JetBrains Mono, Fira Code, IBM Plex Mono, Ubuntu Sans Mono (`--font=NAME`) — all from Ubuntu's archive, Arabic always fixed-width |
 
 **Requirements:** Ubuntu 26.04 LTS (24.04 and 25.10 best-effort), x86_64 or aarch64,
 Bash 5.1+, `sudo` for apt packages (asked once). Run it as your normal user.
 
 ## supershell-theme
 
-supershell's own prompt: a colour bar across the full terminal width, square at both
-ends, git and language info in the middle, the clock at the right — and the command's
+supershell's own prompt: a colour bar across the full terminal width with rounded
+ends (or square: `supershell theme ends square`), git and language info in the middle, the clock at the right — and the command's
 duration, exit status and Kubernetes context on the second line, in front of the `❯`.
 It is a file in this repository, so it stays the same whatever starship ships.
+The rounded ends are drawn by supershell itself (a two-glyph font, `Supershell Ends`):
+the end's cell takes the bar colour as its background and the font only cuts the
+corners in the terminal's own background colour, so the ends meet the bar exactly at
+every font size and zoom, with any palette or terminal colours.
+When the bar does not fit on one line (a long folder, a busy git status, a narrow
+window) it moves to two full-width lines — who and where with the clock on the first,
+git, languages and docker on the second — and with ble.sh (the default) the prompt is
+worked out again when the window is resized or zoomed.
 
-**Ten colour palettes**, each a smooth ramp from part to part:
+**Ten colour palettes**, each a smooth ramp from part to part — and `ll`, fzf, bat and
+delta follow the palette you pick:
 
 <img src="docs/images/themes.png" alt="supershell theme list: ten palettes — supershell, supershell-root, pastel, tokyo-night, catppuccin, gruvbox, nord, dracula, rose-pine, kanagawa — each shown as a real prompt bar" width="900">
 
@@ -71,6 +80,7 @@ It is a file in this repository, so it stays the same whatever starship ships.
 supershell theme list           # every palette, drawn as your real prompt
 supershell theme colors         # choose while you look (arrows, Enter; Esc cancels)
 supershell theme colors nord    # or by name
+supershell theme ends square    # straight ends instead of rounded
 supershell theme reset          # back to supershell-theme and its default colours
 ```
 
@@ -125,6 +135,63 @@ supershell install lazygit tmux      # add modules
 supershell remove helix              # remove one
 supershell list                      # what's installed
 ```
+
+### How to use each module
+
+**`core`** — the prompt, plus faster ways to find and look at things. The originals
+(`ls`, `cat`, `grep`, `find`) stay exactly as they are; the new tools have their own names.
+
+| Type | What it does |
+|---|---|
+| `ll` · `la` · `lt` | list with git status and icons · including hidden files · as a tree (eza) |
+| `bat file.py` | `cat` with syntax colours and line numbers |
+| `rg "text"` | search file contents, fast (respects `.gitignore`) |
+| `fd name` | find files by name |
+| `z proj` · `zi` | jump to a folder you have visited · pick one from a list (zoxide) |
+| `Ctrl-R` | search your command history |
+| `Ctrl-T` | insert a file path, with a preview |
+| `Alt-C` | jump into a sub-folder |
+| `vim **<Tab>` / `cd **<Tab>` | fuzzy completion for any command |
+
+**`git`** — `git diff`, `git show` and `git log -p` become readable side by side with
+syntax colours (delta). In the diff, `n` / `N` jump to the next / previous file.
+
+**`editor`** — `nvim` (Neovim 0.12; `snvim` if you keep your own `~/.config/nvim`).
+Everything from `vi` works; the leader key is **Space** — press it and wait for a menu.
+
+| Keys | What it does |
+|---|---|
+| `Space f` · `Space /` | find a file · search text in the project |
+| `Space e` | file browser |
+| `Space w` | save |
+| `gd` · `gr` · `K` | go to definition · references · documentation |
+| `Space ca` · `Space cr` · `Space cf` | code action · rename · format |
+| `]d` `[d` · `]h` `[h` | next / previous problem · git change |
+
+Language servers: `:SupershellLspInstall` once. More: [docs/editor.md](docs/editor.md).
+
+**`fonts`** — `supershell font` lists the fonts, `supershell font cascadia-code` switches
+(Ptyxis updates at once); `supershell config set font_size 14`.
+
+**`devops`** — the prompt's second line shows the Kubernetes context (and namespace)
+before you run anything; Docker context and Terraform workspace appear where they apply.
+Tab completion is ready for `kubectl`, `helm`, `docker`, `terraform`, `gh`… (only the
+ones installed). Short aliases are off until you ask: `supershell devops aliases on` →
+`k` = kubectl, `d` = docker, `dc` = docker compose, `tf` = terraform.
+
+**`plus`** — grey suggestions while you type, from your history: `→` (or `Ctrl-F`)
+accepts it, keep typing to ignore it; commands are coloured as you type (red =
+not found). `Ctrl-R` opens Atuin: history with folder and exit code, kept on your
+machine (sync off); `Enter` puts the command on the line, `Enter` again runs it.
+`↑` stays plain Bash history.
+
+**`lazygit`** — `lg`: a full-screen Git UI (stage with `Space`, commit with `c`,
+push with `P`, `?` for every key).
+
+**`helix`** — `hx file`: a modal editor that needs no setup; `hx --tutor` once.
+
+**`tmux`** — `tmux` (never started for you). The prefix is `Ctrl-B`, then `|` / `-`
+split the window, `c` opens a window, `r` reloads the config.
 
 ## Commands
 
@@ -181,7 +248,9 @@ Ideas (not code) were learned from [Omakub](https://github.com/basecamp/omakub)
 (a menu-driven setup with update/uninstall) and
 [shell-bling-ubuntu](https://github.com/hiAndrewQuinn/shell-bling-ubuntu) (pinned
 versions, test matrix), and from discussions in the Atuin, ble.sh and Neovim
-communities. Prompt presets and palettes build on [starship](https://starship.rs) and
+communities. The rounded bar's spacing (icon right inside the rounded start, clock before the
+rounded end) follows [typecraft](https://github.com/typecraft-dev/dotfiles)'s starship
+prompt. Prompt presets and palettes build on [starship](https://starship.rs) and
 the Catppuccin, Dracula, Gruvbox, Kanagawa, Nord, Rosé Pine and Tokyo Night colour
 schemes. Thanks to egmont for the BiDi work in VTE that makes Arabic usable in
 Ubuntu's terminal.

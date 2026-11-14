@@ -285,9 +285,9 @@ test_predownloaded_file_survives_a_rollback_and_is_cleaned_after_success() {
 
 test_font_size_setting_updates_only_the_font_supershell_set() {
   ss install fonts --yes >/dev/null 2>&1 || t_fail install
-  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='DejaVu Sans Mono 14'"   # default size
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='Cascadia Code NF 14'"   # default font and size
   ss config set font_size 10 >/dev/null 2>&1 || t_fail "config set failed"
-  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='DejaVu Sans Mono 10'"
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='Cascadia Code NF 10'"
   # the user picks another font later: supershell must leave it alone
   gsettings set org.gnome.Ptyxis font-name 'Fira Code 13'
   ss config set font_size 14 >/dev/null 2>&1 || t_fail "config set failed"
@@ -312,16 +312,28 @@ test_font_choice_is_part_of_the_install() {
 }
 
 test_font_command_switches_and_installs_the_package() {
-  ss install fonts --yes >/dev/null 2>&1 || t_fail "install failed"
-  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='DejaVu Sans Mono 14'"   # default font
+  ss install core fonts --yes >/dev/null 2>&1 || t_fail "install failed"
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='Cascadia Code NF 14'"   # default font
   : >"$T_APT/log"
-  ss font cascadia-code >/dev/null 2>&1 || t_fail "font cascadia-code failed"
-  assert_contains "$(cat "$T_APT/log")" "fonts-cascadia-code"      # package installed on demand
-  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='Cascadia Code 14'"
-  assert_contains "$(ss font 2>&1)" "font: cascadia-code"
+  local out
+  out="$(ss font jetbrains-mono 2>&1)" || t_fail "font jetbrains-mono failed"
+  assert_contains "$(cat "$T_APT/log")" "fonts-jetbrains-mono"      # package installed on demand
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='JetBrains Mono 14'"
+  assert_contains "$(ss font 2>&1)" "font: jetbrains-mono"
+  # the bar's drawn rounded ends fit Cascadia's line: other fonts get a note, and doctor
+  assert_contains "$out" "rounded ends are drawn for Cascadia Code NF"
+  assert_contains "$(ss font 2>&1)" "bar ends: may step"
+  assert_contains "$(ss doctor 2>&1)" "a 1px step can show"
+  ss theme ends square >/dev/null 2>&1                              # square ends: nothing to say
+  assert_not_contains "$(ss font fira-code 2>&1)" "rounded ends are drawn"
+  ss theme ends rounded >/dev/null 2>&1
+  assert_not_contains "$(ss font dejavu-sans-mono 2>&1)" "rounded ends are drawn"   # measured: fits
+  ss font cascadia-code >/dev/null 2>&1
+  assert_not_contains "$(ss doctor 2>&1)" "a 1px step can show"
+  assert_contains "$(ss doctor 2>&1)" "prompt bar ends (Supershell Ends) installed"
   # a font the user picked in Ptyxis afterwards is left alone — even a supported one
   gsettings set org.gnome.Ptyxis font-name 'JetBrains Mono 11'
-  ss font fira-code >/dev/null 2>&1
+  ss font ubuntu-sans-mono >/dev/null 2>&1
   assert_contains "$(cat "$T_TMP/gsettings")" "font-name='JetBrains Mono 11'"
   ss font comic-sans >/dev/null 2>&1 && t_fail "unknown font must be refused"
   return 0
@@ -431,4 +443,46 @@ test_root_prompt_follows_theme_changes() {
   ss theme colors nord >/dev/null 2>&1
   if grep -q '^sudo' "$T_APT/log"; then t_fail "sudo used while the root prompt is off"; fi
   assert_no_file "$rc"
+}
+
+test_font_size_is_fitted_so_the_bar_glyphs_fill_the_line() {
+  # VTE rounds the line height; at some sizes the bar's rounded ends end a pixel short.
+  T_FONTFIT_TO=14.75 ss install core fonts --yes >/dev/null 2>&1 || t_fail "install failed"
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='Cascadia Code NF 14.75'"
+  assert_eq "$(ss config get font_size)" 14                          # what you asked for is kept
+  T_FONTFIT_TO=14.75 ss font jetbrains-mono >/dev/null 2>&1
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='JetBrains Mono 14.75'"
+  # the screen changes: doctor says so; applying the size again re-fits
+  assert_contains "$(T_FONTFIT_TO=15.25 ss doctor 2>&1)" "the screen changed: JetBrains Mono 15.25 fits"
+  T_FONTFIT_TO=15.25 ss config set font_size 14 >/dev/null 2>&1
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='JetBrains Mono 15.25'"
+  # off: exactly the size asked for
+  ss config set font_fit off >/dev/null 2>&1
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='JetBrains Mono 14'"
+}
+
+test_real_fontfit_picks_a_size_that_fits() {
+  # the real calculation (VTE's formula through Pango), when this machine can run it
+  python3 -I -c 'import gi; gi.require_version("PangoCairo", "1.0")' 2>/dev/null || t_skip "PyGObject/Pango not available"
+  fc-list 2>/dev/null | grep -q "Cascadia Code NF" || [[ -n "$(command -v /usr/bin/fc-list)" && -n "$(/usr/bin/fc-list "Cascadia Code NF")" ]] \
+    || t_skip "Cascadia Code NF not installed on this machine"
+  local s dpi got
+  for dpi in 96 120 144 192; do   # text scaling 1, 1.25, 1.5, 2
+    for s in 11 12 13 14 15 16; do
+      got="$(python3 -I "$T_REPO/lib/fontfit.py" "Cascadia Code NF" "$s" "$dpi")"
+      [[ "$got" =~ ^[0-9]+(\.[0-9]+)?$ ]] || t_fail "not a size: $got"
+      awk -v g="$got" -v s="$s" 'BEGIN { exit !(g >= s - 1 && g <= s + 1.5) }' || t_fail "$s at $dpi dpi → $got (too far)"
+    done
+  done
+  # the laptop case that showed the step (1.25 display scale, text scale 1 → 96 dpi):
+  # 14 and 14.75 end a pixel short, 14.5 fills the line
+  assert_eq "$(python3 -I "$T_REPO/lib/fontfit.py" "Cascadia Code NF" 14 96)" "14.5"
+}
+
+test_ends_font_matches_its_generator() {
+  # config/fonts/SupershellEnds.ttf is generated (scripts/gen-ends-font.py); the bytes
+  # are reproducible, so a fresh run must give the same file
+  python3 -I -c 'import fontTools' 2>/dev/null || t_skip "fontTools not available (apt install python3-fonttools)"
+  python3 -I "$T_REPO/scripts/gen-ends-font.py" "$T_TMP/ends.ttf" >/dev/null 2>&1 || t_fail "generator failed"
+  cmp -s "$T_TMP/ends.ttf" "$T_REPO/config/fonts/SupershellEnds.ttf" || t_fail "SupershellEnds.ttf is not what scripts/gen-ends-font.py makes — run it"
 }

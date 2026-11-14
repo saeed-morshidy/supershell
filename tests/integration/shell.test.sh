@@ -284,7 +284,7 @@ test_real_starship_renders_prompt_without_warnings() {
     out="$(STARSHIP_CACHE="$c" STARSHIP_CONFIG="$HOME/.config/supershell/starship-$1.toml" starship prompt 2>/dev/null)"
     assert_contains "$out" "مشروع"
   }
-  for f in supershell-theme supershell-theme-root pastel-powerline tokyo-night gruvbox-rainbow catppuccin-mocha catppuccin-latte nerd plain; do
+  for f in supershell-theme supershell-theme-root supershell-theme-split supershell-theme-root-split pastel-powerline tokyo-night gruvbox-rainbow catppuccin-mocha catppuccin-latte nerd plain; do
     _check "$f" default
   done
   # the preset as published, and supershell's settings with the rounded start
@@ -293,6 +293,15 @@ test_real_starship_renders_prompt_without_warnings() {
   ss prompt custom on >/dev/null 2>&1 || t_fail "prompt custom on failed"
   ss prompt cap on >/dev/null 2>&1 || t_fail "prompt cap on failed"
   _check pastel-powerline "custom, cap"
+  ss theme ends square >/dev/null 2>&1 || t_fail "theme ends square failed"
+  _check supershell-theme "square ends"
+  _check supershell-theme-split "square ends, two lines"
+  ss theme ends rounded >/dev/null 2>&1
+  # the two-line layout fills both lines exactly, where one line is too narrow
+  local w
+  w="$(STARSHIP_SHELL=bash STARSHIP_CONFIG="$HOME/.config/supershell/starship-supershell-theme-split.toml" starship prompt --terminal-width=160 2>/dev/null \
+    | LC_ALL=C.UTF-8 sed 's/\\\[//g; s/\\\]//g; s/\x1b\[[0-9;]*m//g' | (LC_ALL=C.UTF-8; while IFS= read -r l; do [[ -n "${l// /}" ]] && printf '%s ' "${#l}"; done) | cut -d' ' -f1-2)"
+  assert_eq "$w" "160 160" "two-line bar widths"
   # `theme list` shows every palette in its real colours (starship draws them)
   local list; list="$(cd "$T_TMP/r/مشروع" && ss theme list 2>&1)"
   assert_contains "$list" '48;2;123;45;142'    # supershell  c1 #7B2D8E
@@ -429,15 +438,27 @@ test_supershell_theme_is_the_default_and_ours() {
   t_ubuntu_bashrc; _install core fonts devops
   local f="$HOME/.config/supershell/starship-supershell-theme.toml" r="$HOME/.config/supershell/starship-supershell-theme-root.toml" fmt
   assert_eq "$(ss config get prompt_style)" supershell-theme
-  # supershell's own file: no starship preset in it (palettes are ours), full width, square ends
+  # supershell's own file: no starship preset in it (palettes are ours), full width, rounded ends
   grep -q '^\[palettes\.supershell\]$' "$f" || t_fail "theme palettes missing"
   grep -q '^palette = "supershell"$' "$f" || t_fail "default colours"
   grep -q '^palette = "supershell-root"$' "$r" || t_fail "root colours"
   fmt="$(sed -n '/^format = """/,/"""$/p' "$f")"
   assert_eq "$(LC_ALL=C.UTF-8 grep -oP '\x{E0B0}' <<<"$fmt" | wc -l)" 5 "arrows"
-  assert_eq "$(sed -n 2p <<<"$fmt")" '$os\' "square start"
+  # rounded ends (default): supershell's own drawn ends (Supershell Ends, U+E1F0/E1F1) in
+  # reverse video — bar colour as the cell background — first thing and after the clock
+  LC_ALL=C.UTF-8 grep -qP '^\[\x{E1F0}\]\(fg:c1 inverted\)\\$' <<<"$(sed -n 2p <<<"$fmt")" || t_fail "rounded start"
   grep -q '^\$fill\\$' <<<"$fmt" || t_fail "not full width"
+  LC_ALL=C.UTF-8 grep -qP '^\[\x{E1F1}\]\(fg:c6 inverted\)\\$' <<<"$(grep -A1 '^\$time\\$' <<<"$fmt" | tail -1)" || t_fail "rounded end after the clock"
+  # …and the font that draws them is installed with the fonts module
+  [[ -f "$HOME/.local/share/fonts/supershell/SupershellEnds.ttf" ]] || t_fail "Supershell Ends not installed"
+  if LC_ALL=C.UTF-8 grep -qP '[\x{E0B4}\x{E0B6}]' <<<"$fmt"; then t_fail "old font half-circles still used"; fi
+  # square ends on request: nothing before the user block, nothing after the clock
+  ss theme ends square >/dev/null 2>&1 || t_fail "theme ends square failed"
+  fmt="$(sed -n '/^format = """/,/"""$/p' "$f")"
+  assert_eq "$(sed -n 2p <<<"$fmt")" '$os\' "square start"
   assert_eq "$(grep -A1 '^\$time\\$' <<<"$fmt" | tail -1)" '$line_break\' "square end after the clock"
+  if LC_ALL=C.UTF-8 grep -qP '[\x{E0B4}\x{E0B6}\x{E1F0}\x{E1F1}]' <<<"$fmt"; then t_fail "rounded glyph in the square variant"; fi
+  ss theme ends rounded >/dev/null 2>&1
   # every colour the theme uses is a palette name, never a hex code
   if grep -E '^(style|style_user|style_root|read_only_style) = .*#[0-9A-Fa-f]{6}' "$f"; then t_fail "hard-coded colour"; fi
   # icons from starship's nerd-font-symbols preset; extras on line 2 (devops on)
@@ -459,10 +480,10 @@ test_theme_colours_root_colours_and_reset() {
   assert_eq "$(ss config get prompt_style)" supershell-theme
   # reset: defaults back, your prompt.toml backed up and set aside
   printf '[time]\ndisabled = true\n' >"$HOME/.config/supershell/prompt.toml"
-  ss prompt cap on >/dev/null 2>&1
+  ss prompt cap on >/dev/null 2>&1; ss theme ends square >/dev/null 2>&1
   ss theme reset --yes >/dev/null 2>&1 || t_fail "theme reset failed"
-  assert_eq "$(ss config get prompt_style)|$(ss config get theme_colors)|$(ss config get theme_root_colors)|$(ss config get prompt_cap)" \
-            "supershell-theme|supershell|supershell-root|off"
+  assert_eq "$(ss config get prompt_style)|$(ss config get theme_colors)|$(ss config get theme_root_colors)|$(ss config get theme_ends)|$(ss config get prompt_cap)" \
+            "supershell-theme|supershell|supershell-root|rounded|off"
   assert_no_file "$HOME/.config/supershell/prompt.toml"
   [[ -n "$(find "$HOME/.local/state/supershell/backups" -name prompt.toml)" ]] || t_fail "prompt.toml not backed up"
   grep -q '^palette = "supershell"$' "$f" || t_fail "palette not reset"
@@ -515,4 +536,81 @@ test_colour_chooser_opens_fzf_on_a_terminal() {
   # Esc in fzf: nothing changes
   script -qec "'$T_REPO/supershell' theme colors" /dev/null </dev/null >/dev/null 2>&1
   assert_eq "$(ss config get theme_colors)" nord
+}
+
+test_tools_take_the_theme_colours_and_yours_win() {
+  t_ubuntu_bashrc; _install core fonts git
+  local look="$HOME/.config/supershell/look.bash" eza="$HOME/.config/supershell/eza/theme.yml"
+  assert_file "$look"; assert_file "$eza"
+  ss theme colors nord >/dev/null 2>&1 || t_fail "theme colors failed"
+  assert_contains "$(cat "$eza")" '"#88C0D0"'                     # nord info → directories
+  assert_contains "$(cat "$look")" "__ss_look_bat='Nord'"
+  t_ibash 'echo "$BAT_THEME|$EZA_CONFIG_DIR|$FZF_DEFAULT_OPTS"; alias ll'
+  assert_contains "$T_OUT" "Nord|$HOME/.config/supershell/eza|"
+  assert_contains "$T_OUT" "bg+:#3B4252"                          # fzf selection = nord c6
+  assert_contains "$T_OUT" "alias ll='LS_COLORS= eza -l"           # Ubuntu's dircolors must not win
+  # delta follows BAT_THEME: supershell's git settings no longer fix a syntax theme
+  if grep -q 'syntax-theme' "$HOME/.config/supershell/git/delta.gitconfig"; then t_fail "delta theme fixed"; fi
+  # yours win: your own eza theme, ~/.dircolors, BAT_THEME and FZF_DEFAULT_OPTS
+  mkdir -p "$HOME/.config/eza"; echo "colourful: true" >"$HOME/.config/eza/theme.yml"
+  t_ibash 'echo "[$EZA_CONFIG_DIR]"; alias ll'
+  assert_contains "$T_OUT" "[]"; assert_not_contains "$T_OUT" "LS_COLORS="
+  rm -rf "$HOME/.config/eza"; touch "$HOME/.dircolors"
+  t_ibash 'alias ll'; assert_not_contains "$T_OUT" "LS_COLORS="
+  rm -f "$HOME/.dircolors"
+  sed -i '1i export BAT_THEME=GitHub FZF_DEFAULT_OPTS="--mine"' "$HOME/.bashrc"
+  t_ibash 'echo "$BAT_THEME|$FZF_DEFAULT_OPTS"'; assert_eq "$T_OUT" "GitHub|--mine"
+  sed -i '1d' "$HOME/.bashrc"
+  # theme_tools off: the tools keep their own colours
+  ss config set theme_tools off >/dev/null 2>&1 || t_fail "config set failed"
+  assert_no_file "$look"; assert_no_file "$eza"
+  t_ibash 'echo "$BAT_THEME|[$EZA_CONFIG_DIR]"; alias ll'
+  assert_contains "$T_OUT" "ansi|[]"; assert_not_contains "$T_OUT" "LS_COLORS="
+}
+
+test_real_eza_and_bat_accept_every_palette() {
+  # the generated eza theme must be valid for the real eza, the bat theme must exist
+  [[ -n "$T_REAL_EZA" && -n "$T_REAL_BAT" ]] || t_skip "eza and bat are not installed on this machine"
+  _install core
+  local p out
+  mkdir -p "$T_TMP/ls/dir"
+  for p in supershell supershell-root pastel tokyo-night catppuccin gruvbox nord dracula rose-pine kanagawa; do
+    ss config set theme_colors "$p" >/dev/null 2>&1 || t_fail "palette $p"
+    out="$(cd "$T_TMP/ls" && LS_COLORS= EZA_CONFIG_DIR="$HOME/.config/supershell/eza" "$T_REAL_EZA" -l --color=always . 2>&1)" \
+      || t_fail "eza rejects the $p theme: $out"
+    local info; info="$(awk -v h="[palettes.$p]" '$0==h{f=1;next} /^\[/{f=0} f && /^info/{gsub(/[" ]/,""); sub(/info=#/,""); print}' "$T_REPO/config/starship/themes/supershell-theme.toml")"
+    assert_contains "$out" "38;2;$((16#${info:0:2}));$((16#${info:2:2}));$((16#${info:4:2}))m" "$p: directory colour"
+    # shellcheck source=/dev/null
+    . "$HOME/.config/supershell/look.bash"
+    echo 'x = 1' | "$T_REAL_BAT" --theme="$__ss_look_bat" --language=python --color=always >/dev/null 2>&1 \
+      || t_fail "bat has no theme '$__ss_look_bat' ($p)"
+  done
+}
+
+test_bar_moves_to_two_lines_only_when_it_does_not_fit() {
+  # modules/core/shell.bash measures the prompt and uses the -split layout when the bar
+  # is wider than the window
+  _install core fonts
+  assert_file "$HOME/.config/supershell/starship-supershell-theme-split.toml"
+  assert_file "$HOME/.config/supershell/starship-supershell-theme-root-split.toml"
+  T_OUT="$(bash -ic '
+    declare -F __ss_prompt_too_wide >/dev/null || { echo "no-measure"; exit; }
+    e=$'"'"'\e'"'"'; bar="\[${e}[0;7;38;2;1;2;3m\]$(printf "%0.sx" {1..70})\[${e}[0m\]"
+    COLUMNS=80; __ss_prompt_too_wide $'"'"'\n'"'"'"$bar"$'"'"'\n❯ '"'"' && echo wide80 || echo fits80
+    COLUMNS=60; __ss_prompt_too_wide $'"'"'\n'"'"'"$bar"$'"'"'\n❯ '"'"' && echo wide60 || echo fits60
+    declare -f starship_precmd | grep -c __ss_starship_prompt
+  ' </dev/null 2>/dev/null)"
+  assert_contains "$T_OUT" "fits80"
+  assert_contains "$T_OUT" "wide60"
+  assert_contains "$T_OUT" $'\n1'          # starship's precmd goes through supershell's
+  # theme split off: no two-line file, so the shell keeps one line; on brings it back
+  ss theme split off >/dev/null 2>&1 || t_fail "theme split off failed"
+  [[ -e "$HOME/.config/supershell/starship-supershell-theme-split.toml" ]] && t_fail "split file left with split off"
+  T_OUT="$(bash -ic 'declare -F __ss_prompt_too_wide >/dev/null && echo measuring || echo one-line' </dev/null 2>/dev/null)"
+  assert_contains "$T_OUT" "one-line"
+  ss theme split on >/dev/null 2>&1
+  assert_file "$HOME/.config/supershell/starship-supershell-theme-split.toml"
+  # square ends: the two-line layout has no rounded glyphs either
+  ss theme ends square >/dev/null 2>&1
+  if LC_ALL=C.UTF-8 grep -qP '[\x{E1F0}\x{E1F1}]' "$HOME/.config/supershell/starship-supershell-theme-split.toml"; then t_fail "rounded glyph in square split"; fi
 }
