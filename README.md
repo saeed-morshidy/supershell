@@ -1,29 +1,39 @@
+<div align="center">
+
 # supershell
 
-**A modern, careful Bash environment for Ubuntu 26.04.** A clean prompt, fuzzy
-search, smart navigation, readable Git diffs, a ready-to-use Neovim and DevOps
-awareness — while your shell stays plain Bash and every standard command keeps
-working exactly as on any other Ubuntu machine or server.
+**A modern, careful Bash environment for Ubuntu 26.04**
 
-[العربية](README.ar.md) · [Architecture](docs/architecture.md) · [Why these tools](docs/technology-selection.md) · [Arabic support](docs/arabic.md)
+A colour prompt that is ours, fuzzy search, smart navigation, readable Git diffs,
+suggestions as you type, a ready-to-use Neovim and DevOps awareness —
+while your shell stays plain Bash and every standard command works exactly as on
+any other Ubuntu machine or server.
 
-```
- user  ~/projects/api   main !1?1   k8s-dev (payments)   ♥ 21:48
-❯ _
-```
+[![CI](https://github.com/saeed-morshidy/supershell/actions/workflows/ci.yml/badge.svg)](https://github.com/saeed-morshidy/supershell/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Ubuntu 26.04](https://img.shields.io/badge/Ubuntu-26.04%20LTS-E95420?logo=ubuntu&logoColor=white)
+![Bash 5.1+](https://img.shields.io/badge/Bash-5.1%2B-4EAA25?logo=gnubash&logoColor=white)
 
-## Principles
+[العربية](README.ar.md) · [Install](#install) · [Themes](#supershell-theme) · [Commands](#commands) · [Docs](#documentation)
+
+<img src="docs/images/hero.png" alt="supershell in a terminal: the supershell-theme prompt bar across the full width, an eza tree with icons, git status, and the command duration on the second line" width="900">
+
+</div>
+
+## Why supershell
 
 - **Bash stays Bash.** `ls`, `cat`, `grep`, `find`, `cd`, `vi` are never redefined.
-  New tools have their own names (`ll`, `bat`, `rg`, `z`). Scripts, `scp` and
-  `rsync` are unaffected because nothing runs in non-interactive shells.
-- **One line in `~/.bashrc`.** A clearly marked block, backed up first, removed
-  byte-for-byte on uninstall.
+  New tools have their own names (`ll`, `lt`, `bat`, `rg`, `z`). Scripts, `scp` and
+  `rsync` are unaffected: nothing runs in non-interactive shells.
+- **One block in `~/.bashrc`.** Clearly marked, backed up first, removed byte-for-byte
+  on uninstall.
 - **Fast.** No framework, no daemons, no network at start-up; tool `init` output is
   cached. `supershell bench` shows the real cost on your machine.
-- **Safe to try.** Every run is a transaction: if anything fails or you press
-  Ctrl-C, it rolls back. `supershell mode classic` gives you stock Bash instantly.
-- **Arabic is tested,** and its limits are documented honestly.
+- **Safe to try.** Every run is a transaction: if anything fails or you press Ctrl-C,
+  it rolls back. `supershell mode classic` gives you stock Bash instantly.
+- **Verified downloads.** Ubuntu packages first; anything else is a pinned release
+  checked against its SHA-256. No `curl | sh`, ever.
+- **Arabic is tested** — and its limits are documented honestly.
 
 ## Install
 
@@ -34,35 +44,80 @@ cd supershell
 ./supershell install             # the default modules
 ```
 
-The first install asks two questions:
+Then open a new terminal; `supershell doctor` checks everything.
 
-- **prompt** — *supershell-theme* (default): supershell's own theme — a colour bar
-  across the full terminal width, square ends, the clock at the right — or *starship*:
-  the pastel-powerline [preset](https://starship.rs/presets/) exactly as published.
-  `--custom` / `--default`; back to the default any time with `supershell theme reset`.
-- **terminal font** — DejaVu Sans Mono (default), Cascadia Code, JetBrains Mono, Fira Code,
-  IBM Plex Mono or Ubuntu Sans Mono, installed from Ubuntu's archive. `--font=NAME`;
-  change later with `supershell font <name>`.
+The first install asks two questions — `--yes` takes the defaults:
 
-`--yes` takes the defaults.
+| Question | Default | Other choices |
+|---|---|---|
+| **Prompt** | **supershell-theme** — supershell's own (below) | the starship pastel-powerline preset as published (`--default`) |
+| **Terminal font** | DejaVu Sans Mono | Cascadia Code, JetBrains Mono, Fira Code, IBM Plex Mono, Ubuntu Sans Mono (`--font=NAME`) — from Ubuntu's archive, Arabic always fixed-width |
 
-Then open a new terminal. `supershell doctor` checks everything.
+**Requirements:** Ubuntu 26.04 LTS (24.04 and 25.10 best-effort), x86_64 or aarch64,
+Bash 5.1+, `sudo` for apt packages (asked once). Run it as your normal user.
 
-Requirements: Ubuntu 26.04 LTS (24.04 and 25.10 best-effort), x86_64 or aarch64,
-Bash 5.1+, `sudo` for apt packages. Run it as your normal user.
+## supershell-theme
+
+supershell's own prompt: a colour bar across the full terminal width, square at both
+ends, git and language info in the middle, the clock at the right — and the command's
+duration, exit status and Kubernetes context on the second line, in front of the `❯`.
+It is a file in this repository, so it stays the same whatever starship ships.
+
+**Ten colour palettes**, each a smooth ramp from part to part:
+
+<img src="docs/images/themes.png" alt="supershell theme list: ten palettes — supershell, supershell-root, pastel, tokyo-night, catppuccin, gruvbox, nord, dracula, rose-pine, kanagawa — each shown as a real prompt bar" width="900">
+
+```bash
+supershell theme list           # every palette, drawn as your real prompt
+supershell theme colors         # choose while you look (arrows, Enter; Esc cancels)
+supershell theme colors nord    # or by name
+supershell theme reset          # back to supershell-theme and its default colours
+```
+
+**Choose while you look** — `supershell theme colors` without a name:
+
+<img src="docs/images/chooser.png" alt="The colour chooser: each palette's name with its prompt bar below, the selected one highlighted" width="900">
+
+**Root shells in red.** `supershell root on` gives `su -` / `sudo -i` the same prompt,
+in the `supershell-root` palette so you always see that you are root. Root never reads
+a file your normal account can change: the prompt is copied once, with sudo, into
+root-owned places. Changing your colours later updates root's copy too.
+
+<img src="docs/images/root.png" alt="A normal prompt, then sudo -i: the root prompt in dark red and orange" width="900">
+
+```bash
+supershell root on                      # once (asks for sudo)
+supershell theme root-colors            # root's colours, chosen while you look
+```
+
+Want something else? `supershell prompt tokyo-night` (or `gruvbox-rainbow`,
+`catppuccin-mocha`, `pastel-powerline`, `simple`), and your own tweaks in
+`~/.config/supershell/prompt.toml` (`supershell prompt edit`) — applied on top of
+any style, checked by starship before use. Details: [docs/configuration.md](docs/configuration.md).
+
+## Arabic
+
+Arabic file names, text and folders in the prompt work in Ptyxis (Ubuntu's terminal):
+letters stay joined, Arabic runs right-to-left inside left-to-right lines, and fonts
+without Arabic get it from a fixed-width font.
+
+<img src="docs/images/arabic.png" alt="An Arabic folder name in the prompt, Arabic file names listed by eza, and a Markdown file with mixed Arabic and English shown by bat" width="900">
+
+What is tested and what is not: [docs/arabic.md](docs/arabic.md) ·
+[test plan](docs/arabic-test-plan.md) · [report](docs/reports/arabic-compatibility.md).
 
 ## Modules
 
 | Module | Default | What you get |
-|---|---|---|
+|---|:---:|---|
 | `core` | ✓ | [Starship](https://starship.rs) prompt, `fzf` (Ctrl-R / Ctrl-T / Alt-C), `zoxide` (`z`), `eza` (`ll`, `lt`), `bat`, `fd`, `rg` |
 | `git` | ✓ | [delta](https://github.com/dandavison/delta) for readable diffs (one include line in `~/.gitconfig`) |
 | `editor` | ✓ | Neovim 0.12 profile: LSP, completion, fuzzy find, git signs, file browser |
-| `fonts` | ✓ | terminal font of your choice from Ubuntu's archive (DejaVu Sans Mono, Cascadia Code, JetBrains Mono, Fira Code, IBM Plex Mono, Ubuntu Sans Mono — asked on the first install), Arabic always in fixed-width cells, Nerd Font **icons as a fallback** (no patched fonts) |
-| `devops` | ✓ | k8s context / docker context / terraform workspace in the prompt; tab completion for installed tools |
+| `fonts` | ✓ | the terminal font you choose, Arabic in fixed-width cells, Nerd Font icons as a fallback (no patched fonts) |
+| `devops` | ✓ | k8s context / docker context / terraform workspace in the prompt; completions for installed tools |
+| `plus` | ✓ | suggestions as you type + syntax colours (ble.sh, from Ubuntu's package) + Atuin (local history search) — ~100 ms start-up; `supershell remove plus` for the fastest shell |
 | `lazygit` | | full-screen Git UI |
 | `helix` | | Helix (`hx`), a zero-config modal editor, as a second profile |
-| `plus` | ✓ | suggestions as you type + syntax colours (ble.sh, from Ubuntu's package) + Atuin (local history search) — adds ~100 ms start-up; `supershell remove plus` for the fastest shell |
 | `tmux` | | tmux with sensible defaults (never auto-started) |
 
 ```bash
@@ -71,55 +126,54 @@ supershell remove helix              # remove one
 supershell list                      # what's installed
 ```
 
-## Everyday commands
+## Commands
 
 | Command | |
 |---|---|
-| `supershell mode classic` / `modern` | plain Ubuntu Bash (e.g. while following a tutorial) / the supershell experience |
-| `supershell devops on` / `off` | DevOps info in the prompt + completions |
-| `supershell devops aliases on` | short aliases `k`, `d`, `dc`, `tf` (off by default — learn the full commands first) |
-| `supershell icons auto\|nerd\|plain` | icon style (`auto` uses plain symbols over SSH) |
-| `supershell theme` | supershell-theme (the default prompt): `theme list` shows every palette as your real prompt; `theme colors` lets you choose while you look; `theme colors <name>` (supershell, pastel, tokyo-night, catppuccin, gruvbox, nord, dracula, rose-pine, kanagawa), `theme root-colors <name>` (default: a red `supershell-root`), `theme reset` |
-| `supershell prompt [<style>]` | other styles: `pastel-powerline`, `tokyo-night`, `gruvbox-rainbow`, `catppuccin-mocha` / `-macchiato` / `-frappe` / `-latte`, `simple` |
-| `supershell prompt custom on\|off` | supershell's prompt (full width, square ends — the default) or the starship preset as published; `prompt cap on` = the preset's rounded start |
-| `supershell prompt edit` | your own prompt tweaks (`~/.config/supershell/prompt.toml`), kept across styles and updates |
+| `supershell theme …` | `list`, `colors`, `root-colors`, `reset` — see [supershell-theme](#supershell-theme) |
+| `supershell prompt [<style>]` | other styles; `prompt edit` / `apply` for your own tweaks |
+| `supershell root on\|off` | the same prompt in root shells — root-owned copies, prompt only |
 | `supershell font [<name>]` | terminal font; Ptyxis updates right away |
-| `supershell root on\|off` | the same prompt in root shells (`su -`, `sudo -i`) — root-owned copies, prompt only, asks for sudo once |
-| `supershell keys` | shortcut cheat sheet |
-| `supershell doctor` | health check |
-| `supershell bench` | start-up time and memory, with and without supershell |
-| `supershell update` | update supershell and the tools |
-| `supershell restore` | put back any file from a backup |
-| `supershell uninstall` | remove everything (your files are kept) |
+| `supershell mode classic` / `modern` | plain Ubuntu Bash (e.g. while following a tutorial) / supershell |
+| `supershell devops on\|off` · `devops aliases on` | DevOps info + completions · short aliases `k`, `d`, `dc`, `tf` (off by default) |
+| `supershell doctor` · `bench` | health check · start-up time and memory, with and without supershell |
+| `supershell update` · `restore` · `uninstall` | update · put back a file from a backup · remove everything (your files are kept) |
 
-Need the original command while an alias exists? `\ls`, `command ls`.
+<details>
+<summary><b>Full <code>supershell -h</code></b></summary>
+<br>
+<img src="docs/images/help.png" alt="The full supershell -h help text" width="820">
+</details>
+
+Need the original command while an alias exists? `\ls` or `command ls`.
 Disable supershell for one shell: `SUPERSHELL_DISABLE=1 bash`.
 
-## Keyboard shortcuts (modern mode)
+### Keyboard shortcuts
 
 | Keys | Action |
 |---|---|
-| `Ctrl-R` | fuzzy search command history |
+| `Ctrl-R` | search command history (Atuin with `plus`, fzf otherwise) |
 | `Ctrl-T` | insert a file path (with preview) |
 | `Alt-C` | jump into a sub-folder |
 | `z name` / `zi` | jump to a frequent folder / pick one interactively |
-| `vim **<Tab>` | fuzzy completion for any command |
+| `→` | accept the grey suggestion (`plus`) |
 
 Editor shortcuts: [docs/editor.md](docs/editor.md).
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) · [Technology selection report](docs/technology-selection.md)
-- [Configuration](docs/configuration.md) · [Editor](docs/editor.md)
-- [Arabic support](docs/arabic.md) · [Arabic manual test plan](docs/arabic-test-plan.md)
-- [Troubleshooting](docs/troubleshooting.md) · [Known limitations](docs/known-limitations.md)
+- [Configuration](docs/configuration.md) · [Architecture](docs/architecture.md) · [Why these tools](docs/technology-selection.md) · [Editor](docs/editor.md)
+- [Arabic support](docs/arabic.md) · [Troubleshooting](docs/troubleshooting.md) · [Known limitations](docs/known-limitations.md)
 - [Testing](docs/testing.md) · Reports: [tests](docs/reports/test-results.md), [Arabic](docs/reports/arabic-compatibility.md), [performance](docs/reports/performance.md), [security & dependencies](docs/reports/security-dependencies.md)
+
+The screenshots are real output — starship, eza, git, bat, fzf and the CLI — in a demo
+home, regenerated with `scripts/screenshots/make.sh`.
 
 ## Contributing
 
 Open source under the [MIT License](LICENSE). Everyone can fork and propose changes;
-merging needs **3 maintainer approvals** — see [CONTRIBUTING.md](CONTRIBUTING.md)
-and [GOVERNANCE.md](GOVERNANCE.md).
+merging needs **3 maintainer approvals** — see [CONTRIBUTING.md](CONTRIBUTING.md),
+[GOVERNANCE.md](GOVERNANCE.md) and [SECURITY.md](SECURITY.md).
 
 ## Acknowledgements
 
@@ -127,5 +181,7 @@ Ideas (not code) were learned from [Omakub](https://github.com/basecamp/omakub)
 (a menu-driven setup with update/uninstall) and
 [shell-bling-ubuntu](https://github.com/hiAndrewQuinn/shell-bling-ubuntu) (pinned
 versions, test matrix), and from discussions in the Atuin, ble.sh and Neovim
-communities. Thanks to egmont for the BiDi work in VTE that makes Arabic usable in
+communities. Prompt presets and palettes build on [starship](https://starship.rs) and
+the Catppuccin, Dracula, Gruvbox, Kanagawa, Nord, Rosé Pine and Tokyo Night colour
+schemes. Thanks to egmont for the BiDi work in VTE that makes Arabic usable in
 Ubuntu's terminal.
