@@ -284,7 +284,7 @@ test_real_starship_renders_prompt_without_warnings() {
     out="$(STARSHIP_CACHE="$c" STARSHIP_CONFIG="$HOME/.config/supershell/starship-$1.toml" starship prompt 2>/dev/null)"
     assert_contains "$out" "مشروع"
   }
-  for f in supershell-theme supershell-theme-root pastel-powerline tokyo-night gruvbox-rainbow catppuccin-mocha catppuccin-latte nerd plain; do
+  for f in supershell-theme supershell-theme-root supershell-theme-split supershell-theme-root-split pastel-powerline tokyo-night gruvbox-rainbow catppuccin-mocha catppuccin-latte nerd plain; do
     _check "$f" default
   done
   # the preset as published, and supershell's settings with the rounded start
@@ -295,7 +295,13 @@ test_real_starship_renders_prompt_without_warnings() {
   _check pastel-powerline "custom, cap"
   ss theme ends square >/dev/null 2>&1 || t_fail "theme ends square failed"
   _check supershell-theme "square ends"
+  _check supershell-theme-split "square ends, two lines"
   ss theme ends rounded >/dev/null 2>&1
+  # the two-line layout fills both lines exactly, where one line is too narrow
+  local w
+  w="$(STARSHIP_SHELL=bash STARSHIP_CONFIG="$HOME/.config/supershell/starship-supershell-theme-split.toml" starship prompt --terminal-width=160 2>/dev/null \
+    | LC_ALL=C.UTF-8 sed 's/\\\[//g; s/\\\]//g; s/\x1b\[[0-9;]*m//g' | (LC_ALL=C.UTF-8; while IFS= read -r l; do [[ -n "${l// /}" ]] && printf '%s ' "${#l}"; done) | cut -d' ' -f1-2)"
+  assert_eq "$w" "160 160" "two-line bar widths"
   # `theme list` shows every palette in its real colours (starship draws them)
   local list; list="$(cd "$T_TMP/r/مشروع" && ss theme list 2>&1)"
   assert_contains "$list" '48;2;123;45;142'    # supershell  c1 #7B2D8E
@@ -579,4 +585,32 @@ test_real_eza_and_bat_accept_every_palette() {
     echo 'x = 1' | "$T_REAL_BAT" --theme="$__ss_look_bat" --language=python --color=always >/dev/null 2>&1 \
       || t_fail "bat has no theme '$__ss_look_bat' ($p)"
   done
+}
+
+test_bar_moves_to_two_lines_only_when_it_does_not_fit() {
+  # modules/core/shell.bash measures the prompt and uses the -split layout when the bar
+  # is wider than the window
+  _install core fonts
+  assert_file "$HOME/.config/supershell/starship-supershell-theme-split.toml"
+  assert_file "$HOME/.config/supershell/starship-supershell-theme-root-split.toml"
+  T_OUT="$(bash -ic '
+    declare -F __ss_prompt_too_wide >/dev/null || { echo "no-measure"; exit; }
+    e=$'"'"'\e'"'"'; bar="\[${e}[0;7;38;2;1;2;3m\]$(printf "%0.sx" {1..70})\[${e}[0m\]"
+    COLUMNS=80; __ss_prompt_too_wide $'"'"'\n'"'"'"$bar"$'"'"'\n❯ '"'"' && echo wide80 || echo fits80
+    COLUMNS=60; __ss_prompt_too_wide $'"'"'\n'"'"'"$bar"$'"'"'\n❯ '"'"' && echo wide60 || echo fits60
+    declare -f starship_precmd | grep -c __ss_starship_prompt
+  ' </dev/null 2>/dev/null)"
+  assert_contains "$T_OUT" "fits80"
+  assert_contains "$T_OUT" "wide60"
+  assert_contains "$T_OUT" $'\n1'          # starship's precmd goes through supershell's
+  # theme split off: no two-line file, so the shell keeps one line; on brings it back
+  ss theme split off >/dev/null 2>&1 || t_fail "theme split off failed"
+  [[ -e "$HOME/.config/supershell/starship-supershell-theme-split.toml" ]] && t_fail "split file left with split off"
+  T_OUT="$(bash -ic 'declare -F __ss_prompt_too_wide >/dev/null && echo measuring || echo one-line' </dev/null 2>/dev/null)"
+  assert_contains "$T_OUT" "one-line"
+  ss theme split on >/dev/null 2>&1
+  assert_file "$HOME/.config/supershell/starship-supershell-theme-split.toml"
+  # square ends: the two-line layout has no rounded glyphs either
+  ss theme ends square >/dev/null 2>&1
+  if LC_ALL=C.UTF-8 grep -qP '[\x{E1F0}\x{E1F1}]' "$HOME/.config/supershell/starship-supershell-theme-split.toml"; then t_fail "rounded glyph in square split"; fi
 }

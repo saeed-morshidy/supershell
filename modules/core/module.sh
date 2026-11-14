@@ -136,16 +136,24 @@ core_render_starship() {
   # supershell-theme: supershell's own theme file (no preset involved). Icons come from
   # starship's nerd-font-symbols preset (theme values win). Two renders: yours, and the
   # one root shells get (`supershell root on`) with the root palette.
-  local theme="$dir/themes/supershell-theme.toml" pal variant
+  # Each also has a two-line layout (-split), which the shell uses for a prompt whose
+  # bar does not fit on one line (modules/core/shell.bash).
+  local theme="$dir/themes/supershell-theme.toml" pal variant src
   [[ "$(config_get theme_ends)" == square ]] && theme="$dir/themes/supershell-theme.square.toml"
   if [[ -f "$theme" ]]; then
     starship preset nerd-font-symbols >"$w/sym" 2>/dev/null || : >"$w/sym"
-    for variant in supershell-theme supershell-theme-root; do
+    for variant in supershell-theme supershell-theme-root supershell-theme-split supershell-theme-root-split; do
+      src="$theme"
+      if [[ "$variant" == *-split ]]; then
+        src="${theme%.toml}.split.toml"
+        # theme_split = off: no two-line file, so the shell keeps every prompt on one line
+        [[ -f "$src" && "$(config_get theme_split)" == on ]] || { rm -f -- "$SS_CONFIG_DIR/starship-$variant.toml"; continue; }
+      fi
       pal="$(config_get theme_colors)"
-      if [[ "$variant" == *-root ]]; then
+      if [[ "$variant" == *-root* ]]; then
         pal="$(config_get theme_root_colors)"; [[ "$pal" == same ]] && pal="$(config_get theme_colors)"
       fi
-      _dev "$theme" | sed "s/^palette = .*/palette = \"$pal\"/" >"$w/p"
+      _dev "$src" | sed "s/^palette = .*/palette = \"$pal\"/" >"$w/p"
       awk -f "$merge" "$w/sym" "$w/p" >"$w/p2"
       awk -f "$merge" "$dir/fallback-nerd.toml" "$w/p2" >"$w/out" && core_write_prompt "$w/out" "$variant"
     done

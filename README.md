@@ -66,6 +66,10 @@ The rounded ends are drawn by supershell itself (a two-glyph font, `Supershell E
 the end's cell takes the bar colour as its background and the font only cuts the
 corners in the terminal's own background colour, so the ends meet the bar exactly at
 every font size and zoom, with any palette or terminal colours.
+When the bar does not fit on one line (a long folder, a busy git status, a narrow
+window) it moves to two full-width lines — who and where with the clock on the first,
+git, languages and docker on the second — and with ble.sh (the default) the prompt is
+worked out again when the window is resized or zoomed.
 
 **Ten colour palettes**, each a smooth ramp from part to part — and `ll`, fzf, bat and
 delta follow the palette you pick:

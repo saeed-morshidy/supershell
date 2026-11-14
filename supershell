@@ -67,6 +67,7 @@ ${_c_bld}Look${_c_rst}
   theme colors [<name>]      Colours; no name = choose while you look
   theme root-colors [<name>] Colours in root shells (default supershell-root)
   theme ends rounded|square  Rounded (default) or square ends of the bar
+  theme split on|off         Two lines when the bar does not fit (default on)
   theme reset                Back to supershell-theme and its default colours
   prompt [<style>]           Other styles: pastel-powerline, tokyo-night…
   prompt edit|apply          Your own tweaks (~/.config/supershell/prompt.toml)
@@ -648,6 +649,7 @@ cmd_theme() {
       detail "colors:      $(config_get theme_colors)      (supershell theme colors — choose while you look)"
       detail "root colors: $(config_get theme_root_colors)  (supershell theme root-colors)"
       detail "ends:        $(config_get theme_ends)  (supershell theme ends rounded|square)"
+      detail "split:       $(config_get theme_split)  (two lines when the bar does not fit: supershell theme split on|off)"
       detail "all palettes, as they look: supershell theme list"
       [[ -s "$SS_CONFIG_DIR/prompt.toml" ]] && grep -qv '^[[:space:]]*\(#\|$\)' "$SS_CONFIG_DIR/prompt.toml" \
         && detail "your own tweaks are applied on top: ~/.config/supershell/prompt.toml"
@@ -680,7 +682,7 @@ cmd_theme() {
         backup_file "$f" >/dev/null && rm -f -- "$f"
         detail "your prompt.toml was saved in the backups (supershell restore) and set aside"
       fi
-      local k; for k in prompt_style theme_colors theme_root_colors theme_ends prompt_cap prompt_custom; do
+      local k; for k in prompt_style theme_colors theme_root_colors theme_ends theme_split prompt_cap prompt_custom; do
         config_set "$k" "$(config_default "$k")"
       done
       _prompt_apply
@@ -692,7 +694,11 @@ cmd_theme() {
       [[ "$(config_get prompt_style)" == supershell-theme ]] || config_set prompt_style supershell-theme
       _prompt_apply
       ok "supershell-theme ends: $2 — takes effect in new terminals" ;;
-    *) die "Usage: supershell theme [list|colors [<name>]|root-colors [<name>]|ends rounded|square|reset]" ;;
+    split)
+      [[ -n "${2:-}" ]] || { echo "split: $(config_get theme_split)  (supershell theme split on|off)"; return 0; }
+      config_set theme_split "$2"; _prompt_apply
+      ok "two-line bar when it does not fit: $2 — takes effect in new terminals" ;;
+    *) die "Usage: supershell theme [list|colors [<name>]|root-colors [<name>]|ends rounded|square|split on|off|reset]" ;;
   esac
 }
 

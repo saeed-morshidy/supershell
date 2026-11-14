@@ -92,6 +92,37 @@ def fmt(rounded):
     return 'format = """\n' + "\n".join(lines)
 
 
+def fmt_split(rounded):
+    """The same bar over two lines, used when it does not fit on one (a long folder,
+    a busy git status, a narrow window): who and where with the clock on the first,
+    git, languages and docker on the second. Both run to the window edge. The shell
+    picks it per prompt (modules/core/shell.bash: __ss_starship_prompt)."""
+    cap = lambda glyph, c: [f"[{glyph}](fg:{c} inverted)\\"] if rounded else []
+    lines = [
+        *cap(LCAP, "c1"),
+        "$os\\", "$username\\",
+        f"[{ARROW}](bg:c2 fg:c1)\\",
+        "$directory\\",
+        f"[{ARROW}](fg:c2 bg:c6)\\",
+        "$fill\\",
+        "$time\\",
+        *cap(RCAP, "c6"),
+        "$line_break\\",
+        *cap(LCAP, "c3"),
+        "$git_branch\\", "$git_status\\",
+        f"[{ARROW}](fg:c3 bg:c4)\\",
+        *[f"${m}\\" for m in LANGS],
+        f"[{ARROW}](fg:c4 bg:c5)\\",
+        "$docker_context\\",
+        f"[{ARROW}](fg:c5 bg:c6)\\",
+        "$fill\\",
+        *cap(RCAP, "c6"),
+        "$line_break\\",
+        '$kubernetes$cmd_duration$jobs$status$character"""',
+    ]
+    return 'format = """\n' + "\n".join(lines)
+
+
 def body():
     out = ['''
 [os]
@@ -209,8 +240,9 @@ os.makedirs(os.path.join(ROOT, "config/starship/themes"), exist_ok=True)
 old = os.path.join(ROOT, "config/starship/themes", "supershell-theme.cap.toml")
 if os.path.exists(old):
     os.remove(old)   # replaced by theme_ends (rounded / square)
-for rounded, name in ((True, "supershell-theme.toml"), (False, "supershell-theme.square.toml")):
+for rounded, name in ((True, "supershell-theme"), (False, "supershell-theme.square")):
     variant = " — rounded ends (the default)" if rounded else " — square ends (`supershell theme ends square`)"
-    with open(os.path.join(ROOT, "config/starship/themes", name), "w", encoding="utf-8") as f:
-        f.write(HEAD.format(variant=variant) + fmt(rounded) + "\n" + body().replace("@CLOCK@", CLOCK))
+    for f_, suffix, note in ((fmt, "", ""), (fmt_split, ".split", " — over two lines, when one is too narrow")):
+        with open(os.path.join(ROOT, "config/starship/themes", name + suffix + ".toml"), "w", encoding="utf-8") as f:
+            f.write(HEAD.format(variant=variant + note) + f_(rounded) + "\n" + body().replace("@CLOCK@", CLOCK))
 print("written:", ", ".join(PALETTES))

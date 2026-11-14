@@ -14,6 +14,62 @@ if [[ -z "${STARSHIP_CONFIG:-}" ]]; then
 fi
 __ss_eval_cached starship starship init bash --print-full-init
 
+# ---- supershell-theme: two lines when the bar does not fit; redrawn on resize -----
+# The bar fills the line exactly ($fill). When it is wider than the window (a long
+# folder, a busy git status, a narrow window) its end used to wrap onto the next line;
+# instead, that prompt is drawn from the theme's two-line layout (starship-…-split.toml,
+# written with the theme). The extra starship run happens only for such prompts.
+# With ble.sh the prompt is also worked out again when the window size changes (zoom),
+# before ble.sh redraws it. starship's own precmd is used as it is, except that its
+# `starship prompt` call goes through __ss_starship_prompt.
+if [[ -f "${STARSHIP_CONFIG%.toml}-split.toml" ]] && declare -F starship_precmd >/dev/null; then
+  __ss_f="$(declare -f starship_precmd)"
+  if [[ "$__ss_f" =~ PS1=\"\$\(([^\ \"]+)\ prompt\ \"\$\{ARGS\[@\]\}\"\)\" ]]; then
+    __ss_starship_bin="${BASH_REMATCH[1]}"
+    __ss_prompt_args=()
+    # the visible width of the prompt's bar line (the first non-empty one) > columns?
+    # starship wraps every escape sequence in \[ \]: drop those parts, count the rest.
+    # (Plain prefix/suffix cuts, one per part: a few hundred µs. An extglob pattern
+    # over the whole line took ~70 ms.)
+    __ss_prompt_too_wide() {
+      local LC_ALL=C.UTF-8 s="${1#$'\n'}" vis=""
+      s="${s%%$'\n'*}"
+      while [[ "$s" == *'\['* ]]; do
+        vis+="${s%%'\['*}"; s="${s#*'\['}"; s="${s#*'\]'}"
+      done
+      vis+="$s"
+      ((${#vis} > ${COLUMNS:-80}))
+    }
+    __ss_starship_prompt() {
+      local out
+      out="$("$__ss_starship_bin" prompt "$@")"
+      if __ss_prompt_too_wide "$out"; then
+        out="$(STARSHIP_CONFIG="${STARSHIP_CONFIG%.toml}-split.toml" "$__ss_starship_bin" prompt "$@")"
+      fi
+      printf '%s' "$out"
+    }
+    # shellcheck disable=SC2294  # a function body is re-evaluated, not an array
+    eval "${__ss_f/"${BASH_REMATCH[0]}"/'__ss_prompt_args=("${ARGS[@]}"); PS1="$(__ss_starship_prompt "${ARGS[@]}")"'}"
+    if [[ -n "${BLE_VERSION:-}" ]]; then
+      __ss_prompt_winch() {
+        ((${#__ss_prompt_args[@]})) || return 0
+        local size cols i
+        size="$(stty size </dev/tty 2>/dev/null)"; cols="${size#* }"
+        [[ "$cols" =~ ^[0-9]+$ ]] || return 0
+        local -a args=("${__ss_prompt_args[@]}")
+        for i in "${!args[@]}"; do [[ "${args[i]}" == --terminal-width=* ]] && args[i]="--terminal-width=$cols"; done
+        COLUMNS="$cols"
+        PS1="$(__ss_starship_prompt "${args[@]}")"
+        declare -F ble/prompt/clear >/dev/null && ble/prompt/clear
+        return 0
+      }
+      # before ble.sh's own redraw on resize (its hook is added when it attaches)
+      blehook internal_WINCH+-=__ss_prompt_winch
+    fi
+  fi
+  unset __ss_f
+fi
+
 # ---- smart cd: `z name` / `zi` (cd itself is untouched) ----------------------------
 __ss_eval_cached zoxide zoxide init bash
 
