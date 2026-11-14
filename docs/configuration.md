@@ -19,6 +19,7 @@ supershell config set <key> <value>
 | `prompt_style` | pastel-powerline, tokyo-night, gruvbox-rainbow, catppuccin-mocha, catppuccin-macchiato, catppuccin-frappe, catppuccin-latte, simple | pastel-powerline | two-line prompts with coloured segments = starship's own presets (`catppuccin-*` = the catppuccin-powerline preset with that flavour's palette) + supershell's extras; need Nerd Font icons and fall back to `simple` over SSH / in the console |
 | `prompt_custom` | on, off | on | supershell's ready-made settings for styles that have them (pastel-powerline: full terminal width, square ends, clock at the right); `off` = the preset as starship publishes it. Asked on the first install |
 | `prompt_cap` | on, off | off | with the ready-made settings: the preset's rounded start of the line (`off` = square at the window edge) |
+| `theme_tools` | on, off | on | eza (`ll`, `la`, `lt`), fzf, bat and delta take their colours from the theme palette; your own eza theme, `~/.dircolors`, `BAT_THEME` and `FZF_DEFAULT_OPTS` always win |
 | `font` | dejavu-sans-mono, cascadia-code, jetbrains-mono, fira-code, ibm-plex-mono, ubuntu-sans-mono | dejavu-sans-mono | terminal font (Ubuntu package installed in the same apt batch). Fonts without Arabic take it from DejaVu Sans Mono, so Arabic stays fixed-width. Asked on the first install; `supershell font <name>` |
 | `font_size` | 8–14, 16 | 14 | terminal font size the `fonts` module sets in Ptyxis (applied right away if supershell manages the Ptyxis font) |
 
@@ -54,6 +55,14 @@ stays the same whatever starship ships. Colours are starship *palettes*: each on
 part to part; switching is one setting. Root shells (`supershell root on`) use
 `theme_root_colors` — red by default, so you see at once that you are root.
 `theme reset` puts back the defaults and sets your `prompt.toml` aside (backed up).
+
+**The tools follow the palette too** (`theme_tools`, on by default): `ll`/`la`/`lt` (an eza
+theme in `~/.config/supershell/eza/`), fzf's colours, and the closest built-in bat
+theme — which delta uses as well. The terminal's own palette (e.g. Ptyxis' colour
+scheme) is left alone: it is your choice for every program. Your own settings always
+win: `~/.config/eza/theme.yml`, `~/.dircolors`, `EZA_COLORS`, `BAT_THEME`,
+`FZF_DEFAULT_OPTS`. `supershell config set theme_tools off` gives the tools their own
+colours back.
 The previews are drawn by starship itself with your fonts and icons, so they look
 exactly like the prompt you get; the chooser uses fzf (installed with `core`) and
 falls back to a numbered menu when there is no terminal.

@@ -516,3 +516,52 @@ test_colour_chooser_opens_fzf_on_a_terminal() {
   script -qec "'$T_REPO/supershell' theme colors" /dev/null </dev/null >/dev/null 2>&1
   assert_eq "$(ss config get theme_colors)" nord
 }
+
+test_tools_take_the_theme_colours_and_yours_win() {
+  t_ubuntu_bashrc; _install core fonts git
+  local look="$HOME/.config/supershell/look.bash" eza="$HOME/.config/supershell/eza/theme.yml"
+  assert_file "$look"; assert_file "$eza"
+  ss theme colors nord >/dev/null 2>&1 || t_fail "theme colors failed"
+  assert_contains "$(cat "$eza")" '"#88C0D0"'                     # nord info → directories
+  assert_contains "$(cat "$look")" "__ss_look_bat='Nord'"
+  t_ibash 'echo "$BAT_THEME|$EZA_CONFIG_DIR|$FZF_DEFAULT_OPTS"; alias ll'
+  assert_contains "$T_OUT" "Nord|$HOME/.config/supershell/eza|"
+  assert_contains "$T_OUT" "bg+:#3B4252"                          # fzf selection = nord c6
+  assert_contains "$T_OUT" "alias ll='LS_COLORS= eza -l"           # Ubuntu's dircolors must not win
+  # delta follows BAT_THEME: supershell's git settings no longer fix a syntax theme
+  if grep -q 'syntax-theme' "$HOME/.config/supershell/git/delta.gitconfig"; then t_fail "delta theme fixed"; fi
+  # yours win: your own eza theme, ~/.dircolors, BAT_THEME and FZF_DEFAULT_OPTS
+  mkdir -p "$HOME/.config/eza"; echo "colourful: true" >"$HOME/.config/eza/theme.yml"
+  t_ibash 'echo "[$EZA_CONFIG_DIR]"; alias ll'
+  assert_contains "$T_OUT" "[]"; assert_not_contains "$T_OUT" "LS_COLORS="
+  rm -rf "$HOME/.config/eza"; touch "$HOME/.dircolors"
+  t_ibash 'alias ll'; assert_not_contains "$T_OUT" "LS_COLORS="
+  rm -f "$HOME/.dircolors"
+  sed -i '1i export BAT_THEME=GitHub FZF_DEFAULT_OPTS="--mine"' "$HOME/.bashrc"
+  t_ibash 'echo "$BAT_THEME|$FZF_DEFAULT_OPTS"'; assert_eq "$T_OUT" "GitHub|--mine"
+  sed -i '1d' "$HOME/.bashrc"
+  # theme_tools off: the tools keep their own colours
+  ss config set theme_tools off >/dev/null 2>&1 || t_fail "config set failed"
+  assert_no_file "$look"; assert_no_file "$eza"
+  t_ibash 'echo "$BAT_THEME|[$EZA_CONFIG_DIR]"; alias ll'
+  assert_contains "$T_OUT" "ansi|[]"; assert_not_contains "$T_OUT" "LS_COLORS="
+}
+
+test_real_eza_and_bat_accept_every_palette() {
+  # the generated eza theme must be valid for the real eza, the bat theme must exist
+  [[ -n "$T_REAL_EZA" && -n "$T_REAL_BAT" ]] || t_skip "eza and bat are not installed on this machine"
+  _install core
+  local p out
+  mkdir -p "$T_TMP/ls/dir"
+  for p in supershell supershell-root pastel tokyo-night catppuccin gruvbox nord dracula rose-pine kanagawa; do
+    ss config set theme_colors "$p" >/dev/null 2>&1 || t_fail "palette $p"
+    out="$(cd "$T_TMP/ls" && LS_COLORS= EZA_CONFIG_DIR="$HOME/.config/supershell/eza" "$T_REAL_EZA" -l --color=always . 2>&1)" \
+      || t_fail "eza rejects the $p theme: $out"
+    local info; info="$(awk -v h="[palettes.$p]" '$0==h{f=1;next} /^\[/{f=0} f && /^info/{gsub(/[" ]/,""); sub(/info=#/,""); print}' "$T_REPO/config/starship/themes/supershell-theme.toml")"
+    assert_contains "$out" "38;2;$((16#${info:0:2}));$((16#${info:2:2}));$((16#${info:4:2}))m" "$p: directory colour"
+    # shellcheck source=/dev/null
+    . "$HOME/.config/supershell/look.bash"
+    echo 'x = 1' | "$T_REAL_BAT" --theme="$__ss_look_bat" --language=python --color=always >/dev/null 2>&1 \
+      || t_fail "bat has no theme '$__ss_look_bat' ($p)"
+  done
+}

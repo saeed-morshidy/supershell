@@ -36,6 +36,15 @@ cfg() {   # <palette> <user name> <out>
     | sed 's/^time_format = .*/time_format = "09:41"/' >"$3"
 }
 cfg supershell dev "$W/user.toml"
+
+# the tools' colours (eza, bat, fzf) for the default palette — supershell's own code
+( export SUPERSHELL_CONFIG="$W/look" SUPERSHELL_STATE="$W/state"; SS_ROOT="$REPO"
+  # shellcheck source=/dev/null
+  for f in common os state backup tools modules; do . "lib/$f.sh"; done
+  SS_APP="$REPO"; module_load core; core_render_look )
+# shellcheck source=/dev/null
+. "$W/look/look.bash"
+export EZA_CONFIG_DIR="$W/look/eza" LS_COLORS="" BAT_THEME="$__ss_look_bat"
 cfg supershell-root root "$W/root.toml"
 
 # ---- demo home -------------------------------------------------------------------
@@ -89,7 +98,7 @@ EZA=(eza --icons=always --color=always --group-directories-first)
 { prompt "$W/user.toml" "$AR"; echo "ls"
   (cd "$AR" && "${EZA[@]}" -1 .)
   prompt "$W/user.toml" "$AR"; echo "bat تقارير/ملخص.md"
-  (cd "$AR" && bat --color=always --style=plain --paging=never "تقارير/ملخص.md")
+  (cd "$AR" && bat --color=always --style=plain --paging=never --theme="$BAT_THEME" "تقارير/ملخص.md")
   prompt "$W/user.toml" "$AR"; echo
 } >"$W/arabic.ansi"
 
@@ -100,7 +109,7 @@ EZA=(eza --icons=always --color=always --group-directories-first)
     printf '%s%s\n%s\0' "$pal" "$([[ $pal == supershell ]] && echo "  ● current")" "$(WIDTH=$((COLS - 4)) prompt "$W/p.toml" "$P" | grep -m1 .)"
   done; } >"$W/items"
 tmux -L ss-shot -f /dev/null new-session -d -x "$COLS" -y 24 \
-  "fzf --read0 --ansi --no-sort --layout=reverse --gap --highlight-line --info=hidden \
+  "FZF_DEFAULT_OPTS='$__ss_look_fzf' fzf --read0 --ansi --no-sort --layout=reverse --gap --highlight-line --info=hidden \
      --header 'Your colours — arrows: look · Enter: use · Esc: cancel' <'$W/items'; sleep 5"
 sleep 1.5; tmux -L ss-shot send-keys Down; sleep 0.8
 { echo "$(prompt "$W/user.toml" "$P" | sed -n 2,3p)supershell theme colors"

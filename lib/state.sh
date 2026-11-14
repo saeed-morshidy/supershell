@@ -14,6 +14,7 @@ SS_CONFIG_SCHEMA=(
   "set_editor|on off|on"
   "prompt_style|supershell-theme pastel-powerline tokyo-night gruvbox-rainbow catppuccin-mocha catppuccin-macchiato catppuccin-frappe catppuccin-latte simple|supershell-theme"
   "theme_colors|supershell supershell-root pastel tokyo-night catppuccin gruvbox nord dracula rose-pine kanagawa|supershell"
+  "theme_tools|on off|on"
   "theme_root_colors|supershell supershell-root pastel tokyo-night catppuccin gruvbox nord dracula rose-pine kanagawa same|supershell-root"
   "prompt_custom|on off|on"
   "prompt_cap|on off|off"

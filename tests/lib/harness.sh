@@ -10,6 +10,8 @@ T_STUBS="$T_REPO/tests/stubs"
 T_REAL_NVIM="$(command -v nvim 2>/dev/null || true)"
 T_REAL_NVIM_PACK="${XDG_DATA_HOME:-$HOME/.local/share}/supershell-nvim/site/pack"
 T_REAL_STARSHIP="$(command -v starship 2>/dev/null || true)"
+T_REAL_EZA="$(command -v eza 2>/dev/null || true)"
+T_REAL_BAT="$(command -v bat 2>/dev/null || command -v batcat 2>/dev/null || true)"
 
 t_fail() { printf '    FAIL: %s\n' "$*" >&2; exit 1; }
 t_skip() { printf '    SKIP: %s\n' "$*" >&2; exit 77; }

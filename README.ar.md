@@ -66,6 +66,8 @@ cd supershell
 - `supershell theme colors` — تختار وأنت شايف (الأسهم ثم Enter، وEsc للإلغاء).
 - `supershell theme reset` — رجوع للأصل.
 
+والأدوات نفسها تتبع الألوان: `ll` (eza) وfzf وbat وdelta تأخذ ألوانها من نفس المجموعة، وإعداداتك أنت (ثيم eza خاص، أو `BAT_THEME`، أو `FZF_DEFAULT_OPTS`) لها الأولوية دائمًا.
+
 **الـ root باللون الأحمر:** الأمر `supershell root on` يعطي `su -` و`sudo -i` نفس الشكل بألوان `supershell-root`، فتعرف دائمًا أنك root. ولا يقرأ الـ root أي ملف يقدر حسابك العادي يعدّله.
 
 <p align="center"><img src="docs/images/root.png" alt="prompt عادي ثم sudo -i: prompt الـ root بالأحمر والبرتقالي" width="900"></p>

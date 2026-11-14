@@ -63,7 +63,8 @@ ends, git and language info in the middle, the clock at the right — and the co
 duration, exit status and Kubernetes context on the second line, in front of the `❯`.
 It is a file in this repository, so it stays the same whatever starship ships.
 
-**Ten colour palettes**, each a smooth ramp from part to part:
+**Ten colour palettes**, each a smooth ramp from part to part — and `ll`, fzf, bat and
+delta follow the palette you pick:
 
 <img src="docs/images/themes.png" alt="supershell theme list: ten palettes — supershell, supershell-root, pastel, tokyo-night, catppuccin, gruvbox, nord, dracula, rose-pine, kanagawa — each shown as a real prompt bar" width="900">
 
