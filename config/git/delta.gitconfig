@@ -9,6 +9,5 @@
 [delta]
 	navigate = true
 	line-numbers = true
-	syntax-theme = ansi
 	file-style = bold blue
 	hunk-header-style = file line-number syntax

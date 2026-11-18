@@ -27,8 +27,8 @@ cd supershell
 
 أول تثبيت يسألك سؤالين:
 
-- **شكل الـ prompt** — *supershell-theme* (الافتراضي): ثيم supershell الخاص — شريط ألوان بعرض الـ terminal كله، وطرفاه مربّعان، والساعة على اليمين — أو *starship*: شكل pastel-powerline [كما ينشره starship](https://starship.rs/presets/) بالضبط. الخياران `--custom` و`--default`، وترجع للافتراضي في أي وقت بـ `supershell theme reset`.
-- **خط الـ terminal** — DejaVu Sans Mono (الافتراضي)، أو Cascadia Code، أو JetBrains Mono، أو Fira Code، أو IBM Plex Mono، أو Ubuntu Sans Mono، من أرشيف Ubuntu. الخيار `--font=NAME`، وتقدر تغيّر لاحقًا بـ `supershell font <name>`.
+- **شكل الـ prompt** — *supershell-theme* (الافتراضي): ثيم supershell الخاص — شريط ألوان بعرض الـ terminal كله بطرفين مدوّرين، والساعة على اليمين — أو *starship*: شكل pastel-powerline [كما ينشره starship](https://starship.rs/presets/) بالضبط. الخياران `--custom` و`--default`، وترجع للافتراضي في أي وقت بـ `supershell theme reset`.
+- **خط الـ terminal** — Cascadia Code NF (الافتراضي: فيه العربي والأيقونات، وأطراف الشريط المدوّرة اللي supershell بيرسمها بنفسه متظبطة عليه)، أو DejaVu Sans Mono، أو JetBrains Mono، أو Fira Code، أو IBM Plex Mono، أو Ubuntu Sans Mono، من أرشيف Ubuntu. الخيار `--font=NAME`، وتقدر تغيّر لاحقًا بـ `supershell font <name>`.
 
 و`--yes` تختار الافتراضي في الاثنين.
 
@@ -46,7 +46,7 @@ cd supershell
 | `supershell prompt [<style>]` | أشكال تانية: `pastel-powerline`، `tokyo-night`، `gruvbox-rainbow`، `catppuccin-mocha`… |
 | `supershell prompt custom on/off` | شكل supershell (بعرض الشاشة وطرفاه مربّعان — الافتراضي) أو شكل starship كما هو؛ و`prompt cap on` يرجّع البداية المدوّرة |
 | `supershell prompt edit` | تعديلاتك أنت على الـ prompt (`~/.config/supershell/prompt.toml`)، وتبقى مع أي شكل وبعد أي تحديث |
-| `supershell font [<name>]` | خط الـ terminal (DejaVu Sans Mono، Cascadia Code، JetBrains Mono…)، والعربي دائمًا بعرض ثابت؛ Ptyxis يتحدّث فورًا |
+| `supershell font [<name>]` | خط الـ terminal (Cascadia Code NF، DejaVu Sans Mono، JetBrains Mono…؛ بينبّهك لو الأطراف المدوّرة ممكن يبان فيها بكسل مع الخط دا)، والعربي دائمًا بعرض ثابت؛ Ptyxis يتحدّث فورًا |
 | `supershell root on/off` | نفس شكل الـ prompt وأنت root (`su -` أو `sudo -i`) — نسخ يملكها root، والـ prompt فقط، ويطلب sudo مرة واحدة |
 | `supershell keys` | ملخص الاختصارات |
 | `supershell doctor` | فحص سلامة البيئة |
@@ -56,15 +56,42 @@ cd supershell
 
 الوحدات المُثبَّتة افتراضيًا هي `core` و`git` و`editor` و`fonts` و`devops` و`plus` (اقتراحات وأنت تكتب). والوحدات الاختيارية هي `lazygit` و`helix` و`tmux`.
 
+### استخدام كل وحدة
+
+**`core`** — الأوامر الأصلية (`ls` و`cat` و`grep` و`find`) كما هي، والأدوات الجديدة بأسماء خاصة بها:
+
+| اكتب | الوظيفة |
+|---|---|
+| `ll` · `la` · `lt` | عرض الملفات مع حالة git والأيقونات · مع المخفية · كشجرة |
+| `bat ملف` | مثل `cat` لكن بألوان الكود وأرقام الأسطر |
+| `rg "نص"` | بحث سريع داخل الملفات |
+| `fd اسم` | بحث عن ملف بالاسم |
+| `z مشروع` · `zi` | الانتقال لمجلد زرته قبل كده · اختيار من قائمة |
+| `Ctrl-R` · `Ctrl-T` · `Alt-C` | البحث في الأوامر السابقة · إدراج مسار ملف · دخول مجلد |
+
+**`git`** — `git diff` يصبح واضحًا بالألوان (delta)، و`n` / `N` للانتقال بين الملفات.
+
+**`editor`** — `nvim`، ومفتاح القائد **Space** (اضغطه وانتظر تظهر قائمة): `Space f` بحث عن ملف، و`Space /` بحث في المشروع، و`Space e` متصفح الملفات، و`gd` الذهاب للتعريف. التفاصيل في [docs/editor.md](docs/editor.md).
+
+**`fonts`** — `supershell font` لعرض الخطوط و`supershell font cascadia-code` للتغيير.
+
+**`devops`** — الـ prompt يعرض الـ Kubernetes context قبل أي أمر، والـ completion جاهز لـ `kubectl` و`helm` و`docker` و`terraform`. والاختصارات (`k` و`d` و`dc` و`tf`) تشتغل بـ `supershell devops aliases on`.
+
+**`plus`** — اقتراح رمادي وأنت تكتب من أوامرك السابقة: `→` لقبوله. و`Ctrl-R` يفتح Atuin للبحث في الأوامر مع المجلد ونتيجة الأمر، ويبقى على جهازك فقط.
+
+**`lazygit`** — `lg` لواجهة git كاملة. **`helix`** — `hx ملف`. **`tmux`** — `tmux`، والبادئة `Ctrl-B` ثم `|` أو `-` لتقسيم الشاشة.
+
 ## ثيم supershell
 
-ثيم supershell الخاص: شريط ألوان بعرض الـ terminal كله، وطرفاه مربّعان، والساعة على اليمين، ومدة الأمر وحالته في السطر الثاني. وله عشر مجموعات ألوان، كل واحدة متدرّجة من جزء لجزء:
+ثيم supershell الخاص: شريط ألوان بعرض الـ terminal كله بطرفين مدوّرين (أو مربّعين بـ `supershell theme ends square`)، والساعة على اليمين، ومدة الأمر وحالته في السطر الثاني. ولو الشريط مكفّاش في سطر واحد (اسم folder طويل، أو git status كبير، أو شاشة ضيقة) بيتقسم لوحده على سطرين مالين العرض، ومع ble.sh بيتحسب تاني لما تكبّر أو تصغّر الشاشة. وله عشر مجموعات ألوان، كل واحدة متدرّجة من جزء لجزء:
 
 <p align="center"><img src="docs/images/themes.png" alt="الأمر supershell theme list يعرض عشر مجموعات ألوان، كل واحدة كشريط prompt حقيقي" width="900"></p>
 
 - `supershell theme list` — كل الألوان بشكل الـ prompt الحقيقي.
 - `supershell theme colors` — تختار وأنت شايف (الأسهم ثم Enter، وEsc للإلغاء).
 - `supershell theme reset` — رجوع للأصل.
+
+والأدوات نفسها تتبع الألوان: `ll` (eza) وfzf وbat وdelta تأخذ ألوانها من نفس المجموعة، وإعداداتك أنت (ثيم eza خاص، أو `BAT_THEME`، أو `FZF_DEFAULT_OPTS`) لها الأولوية دائمًا.
 
 **الـ root باللون الأحمر:** الأمر `supershell root on` يعطي `su -` و`sudo -i` نفس الشكل بألوان `supershell-root`، فتعرف دائمًا أنك root. ولا يقرأ الـ root أي ملف يقدر حسابك العادي يعدّله.
 
