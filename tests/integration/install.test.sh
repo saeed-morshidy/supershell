@@ -285,9 +285,9 @@ test_predownloaded_file_survives_a_rollback_and_is_cleaned_after_success() {
 
 test_font_size_setting_updates_only_the_font_supershell_set() {
   ss install fonts --yes >/dev/null 2>&1 || t_fail install
-  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='Cascadia Code NF 14'"   # default font and size
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='DejaVu Sans Mono 14'"   # default font and size
   ss config set font_size 10 >/dev/null 2>&1 || t_fail "config set failed"
-  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='Cascadia Code NF 10'"
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='DejaVu Sans Mono 10'"
   # the user picks another font later: supershell must leave it alone
   gsettings set org.gnome.Ptyxis font-name 'Fira Code 13'
   ss config set font_size 14 >/dev/null 2>&1 || t_fail "config set failed"
@@ -313,7 +313,7 @@ test_font_choice_is_part_of_the_install() {
 
 test_font_command_switches_and_installs_the_package() {
   ss install core fonts --yes >/dev/null 2>&1 || t_fail "install failed"
-  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='Cascadia Code NF 14'"   # default font
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='DejaVu Sans Mono 14'"   # default font
   : >"$T_APT/log"
   local out
   out="$(ss font jetbrains-mono 2>&1)" || t_fail "font jetbrains-mono failed"
@@ -321,7 +321,7 @@ test_font_command_switches_and_installs_the_package() {
   assert_contains "$(cat "$T_TMP/gsettings")" "font-name='JetBrains Mono 14'"
   assert_contains "$(ss font 2>&1)" "font: jetbrains-mono"
   # the bar's drawn rounded ends fit Cascadia's line: other fonts get a note, and doctor
-  assert_contains "$out" "rounded ends are drawn for Cascadia Code NF"
+  assert_contains "$out" "rounded ends are drawn for DejaVu Sans Mono"
   assert_contains "$(ss font 2>&1)" "bar ends: may step"
   assert_contains "$(ss doctor 2>&1)" "a 1px step can show"
   ss theme ends square >/dev/null 2>&1                              # square ends: nothing to say
@@ -448,7 +448,7 @@ test_root_prompt_follows_theme_changes() {
 test_font_size_is_fitted_so_the_bar_glyphs_fill_the_line() {
   # VTE rounds the line height; at some sizes the bar's rounded ends end a pixel short.
   T_FONTFIT_TO=14.75 ss install core fonts --yes >/dev/null 2>&1 || t_fail "install failed"
-  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='Cascadia Code NF 14.75'"
+  assert_contains "$(cat "$T_TMP/gsettings")" "font-name='DejaVu Sans Mono 14.75'"
   assert_eq "$(ss config get font_size)" 14                          # what you asked for is kept
   T_FONTFIT_TO=14.75 ss font jetbrains-mono >/dev/null 2>&1
   assert_contains "$(cat "$T_TMP/gsettings")" "font-name='JetBrains Mono 14.75'"

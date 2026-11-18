@@ -287,7 +287,7 @@ mod_doctor() {
   fi
   if [[ "$ps" == supershell-theme && "$(config_get theme_ends)" == rounded ]] && module_is_installed fonts \
      && [[ "$(module_load fonts; _font_field "$(config_get font)" 5)" != yes ]]; then
-    check_warn "the bar's rounded ends are drawn for Cascadia Code NF; with $(config_get font) a 1px step can show — supershell font cascadia-code (or: supershell theme ends square)"
+    check_warn "the bar's rounded ends are drawn for DejaVu Sans Mono and Cascadia Code NF; with $(config_get font) a 1px step can show — supershell font dejavu-sans-mono (or: supershell theme ends square)"
   fi
   mod_doctor_prompt
   [[ -n "${STARSHIP_CONFIG:-}" && "$STARSHIP_CONFIG" != "$SS_CONFIG_DIR"/* ]] && check_warn "STARSHIP_CONFIG is set to your own file ($STARSHIP_CONFIG) — supershell's prompt is not used"

@@ -51,7 +51,7 @@ The first install asks two questions — `--yes` takes the defaults:
 | Question | Default | Other choices |
 |---|---|---|
 | **Prompt** | **supershell-theme** — supershell's own (below) | the starship pastel-powerline preset as published (`--default`) |
-| **Terminal font** | Cascadia Code NF — Arabic built in, icons at full height; the bar's drawn rounded ends are made for it | DejaVu Sans Mono, JetBrains Mono, Fira Code, IBM Plex Mono, Ubuntu Sans Mono (`--font=NAME`) — all from Ubuntu's archive, Arabic always fixed-width |
+| **Terminal font** | DejaVu Sans Mono — clear letters and good Arabic of its own; icons from Symbols Nerd Font | Cascadia Code NF, JetBrains Mono, Fira Code, IBM Plex Mono, Ubuntu Sans Mono (`--font=NAME`) — all from Ubuntu's archive, Arabic always fixed-width |
 
 **Requirements:** Ubuntu 26.04 LTS (24.04 and 25.10 best-effort), x86_64 or aarch64,
 Bash 5.1+, `sudo` for apt packages (asked once). Run it as your normal user.
