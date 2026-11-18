@@ -20,7 +20,7 @@ SS_CONFIG_SCHEMA=(
   "theme_root_colors|supershell supershell-root pastel tokyo-night catppuccin gruvbox nord dracula rose-pine kanagawa same|supershell-root"
   "prompt_custom|on off|on"
   "prompt_cap|on off|off"
-  "font|cascadia-code dejavu-sans-mono jetbrains-mono fira-code ibm-plex-mono ubuntu-sans-mono|cascadia-code"
+  "font|dejavu-sans-mono cascadia-code jetbrains-mono fira-code ibm-plex-mono ubuntu-sans-mono|dejavu-sans-mono"
   "font_fit|on off|on"
   "font_size|8 9 10 11 12 13 14 16|14"
   "nerd_font_installed|yes no|no"

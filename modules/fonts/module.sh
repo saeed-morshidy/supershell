@@ -11,15 +11,16 @@ MOD_DEPS=""
 # (config/fonts/SupershellEnds.ttf, scripts/gen-ends-font.py) for Cascadia Code NF's
 # line; measured, they also meet the bar exactly with DejaVu Sans Mono and Ubuntu Sans
 # Mono at every size. With the others a one-pixel step can show at some sizes.
-# Cascadia Code NF (the default) is the Nerd Font build in Ubuntu's fonts-cascadia-code:
+# DejaVu Sans Mono is the default: clear letters and good Arabic of its own.
+# Cascadia Code NF is the Nerd Font build in Ubuntu's fonts-cascadia-code:
 # its powerline arrows, rounded ends and icons are drawn at the full cell height, so the
 # prompt bar looks right; the other fonts get icons from Symbols Nerd Font Mono, whose
 # glyphs can come out smaller than the line (rounded ends look like small blobs).
 # Fonts without Arabic get it from DejaVu Sans Mono (fixed width) via fontconfig, so
 # Arabic never falls back to a proportional font.
 FONTS_SUPPORTED=(
-  "cascadia-code|Cascadia Code NF|fonts-cascadia-code|yes|yes"
   "dejavu-sans-mono|DejaVu Sans Mono|fonts-dejavu-core|yes|yes"
+  "cascadia-code|Cascadia Code NF|fonts-cascadia-code|yes|yes"
   "jetbrains-mono|JetBrains Mono|fonts-jetbrains-mono|no|no"
   "fira-code|Fira Code|fonts-firacode|no|no"
   "ibm-plex-mono|IBM Plex Mono|fonts-ibm-plex|no|no"
@@ -31,8 +32,8 @@ _font_field() {   # <setting> <field 2..4>
   done; return 1
 }
 FONT_NAME="$(config_get font)"
-FONT_FAMILY="$(_font_field "$FONT_NAME" 2 || echo "Cascadia Code NF")"
-FONT_PKG="$(_font_field "$FONT_NAME" 3 || echo fonts-cascadia-code)"
+FONT_FAMILY="$(_font_field "$FONT_NAME" 2 || echo "DejaVu Sans Mono")"
+FONT_PKG="$(_font_field "$FONT_NAME" 3 || echo fonts-dejavu-core)"
 # DejaVu Sans Mono is always installed: it is the Arabic fallback for the others.
 MOD_PKGS="fontconfig fonts-dejavu-core"
 [[ "$FONT_PKG" != fonts-dejavu-core ]] && MOD_PKGS+=" $FONT_PKG"
